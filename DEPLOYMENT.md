@@ -4,139 +4,146 @@
 
 ```
 ┌─────────────────┐         ┌─────────────────┐
-│     Vercel      │ ◄─────► │     Railway     │
+│     Vercel      │ ◄─────► │     Fly.io      │
 │   (Frontend)    │   WS    │    (Backend)    │
 │   Next.js App   │         │   Socket.io     │
 └─────────────────┘         └─────────────────┘
         │                           │
         ▼                           ▼
-   hum.vercel.app          hum-server.railway.app
+   hum.vercel.app         hum-sync-server.fly.dev
 ```
 
 ---
 
-## Step 1: Deploy Backend to Railway (10 min)
+## Step 1: Deploy Backend to Fly.io (15 min)
 
-### 1.1 Create Railway Account
-1. Go to [railway.app](https://railway.app)
-2. Sign up with GitHub
+### 1.1 Install Fly CLI
 
-### 1.2 Create New Project
-1. Click **"New Project"**
-2. Select **"Deploy from GitHub repo"**
-3. Choose `HarshalPatel1972/hum`
-4. Railway will detect the monorepo
-
-### 1.3 Configure the Server Service
-1. Click on the deployed service
-2. Go to **Settings** → **Root Directory**
-3. Set to: `server`
-4. Go to **Settings** → **Build Command**:
-   ```
-   npm install && npm run build
-   ```
-5. Go to **Settings** → **Start Command**:
-   ```
-   npm start
-   ```
-
-### 1.4 Add Environment Variables
-Go to **Variables** tab and add:
+**Windows (PowerShell as Admin):**
+```powershell
+powershell -Command "iwr https://fly.io/install.ps1 -useb | iex"
 ```
-FRONTEND_URL=https://your-app-name.vercel.app
-```
-(You'll update this after deploying to Vercel)
 
-### 1.5 Generate Domain
-1. Go to **Settings** → **Networking**
-2. Click **"Generate Domain"**
-3. Copy the URL (e.g., `hum-server-production.up.railway.app`)
+**Or download from:** https://fly.io/docs/flyctl/install/
+
+### 1.2 Sign Up & Login
+```bash
+flyctl auth signup
+# Or if you have an account:
+flyctl auth login
+```
+
+### 1.3 Build the Server
+```bash
+cd server
+npm install
+npm run build
+```
+
+### 1.4 Launch on Fly.io
+```bash
+cd server
+flyctl launch --name hum-sync-server --region bom --no-deploy
+```
+- Say **No** to Postgres/Redis
+- Say **Yes** to .dockerignore if asked
+
+### 1.5 Set Environment Variable
+```bash
+flyctl secrets set FRONTEND_URL=https://your-app.vercel.app
+```
+
+### 1.6 Deploy
+```bash
+flyctl deploy
+```
+
+### 1.7 Get Your URL
+```bash
+flyctl status
+```
+Your server URL will be: `https://hum-sync-server.fly.dev`
 
 ---
 
-## Step 2: Deploy Frontend to Vercel (10 min)
+## Step 2: Deploy Frontend to Vercel (5 min)
 
-### 2.1 Create Vercel Account
-1. Go to [vercel.com](https://vercel.com)
-2. Sign up with GitHub
+### 2.1 Go to Vercel
+1. Visit [vercel.com](https://vercel.com)
+2. Sign up/login with GitHub
 
 ### 2.2 Import Project
 1. Click **"Add New"** → **"Project"**
 2. Import `HarshalPatel1972/hum`
-3. Configure:
-   - **Root Directory**: `client`
-   - **Framework Preset**: Next.js (auto-detected)
+3. Set **Root Directory**: `client`
 
 ### 2.3 Add Environment Variables
-In the Vercel dashboard, add:
 ```
 YOUTUBE_API_KEY=AIzaSyATuvPOcZ6x58ITz53MV5hH9OfEfYdv0XA
-NEXT_PUBLIC_SOCKET_URL=https://your-railway-url.up.railway.app
+NEXT_PUBLIC_SOCKET_URL=https://hum-sync-server.fly.dev
 ```
 
 ### 2.4 Deploy
-Click **"Deploy"** and wait ~2 minutes.
+Click **Deploy** - done in ~2 minutes!
 
 ---
 
-## Step 3: Update Railway with Vercel URL
+## Step 3: Update Fly.io with Vercel URL
 
-1. Go back to Railway dashboard
-2. Update the `FRONTEND_URL` variable:
-   ```
-   FRONTEND_URL=https://your-app-name.vercel.app
-   ```
-3. Railway will auto-redeploy
+```bash
+cd server
+flyctl secrets set FRONTEND_URL=https://your-actual-vercel-url.vercel.app
+```
 
 ---
 
-## Step 4: Test Production
+## Quick Reference
 
-1. Open your Vercel URL
-2. Create a room
-3. Open in another browser/incognito
-4. Join the same room
-5. Verify sync works!
+### Fly.io Commands
+```bash
+flyctl status          # Check app status
+flyctl logs            # View logs
+flyctl secrets list    # List env vars
+flyctl deploy          # Redeploy after changes
+```
 
----
+### Environment Variables
 
-## Environment Variables Summary
-
-### Railway (Backend)
+**Fly.io (Backend):**
 | Variable | Value |
 |----------|-------|
 | `FRONTEND_URL` | `https://your-app.vercel.app` |
-| `PORT` | Auto-set by Railway |
+| `PORT` | `8080` (auto-set in fly.toml) |
 
-### Vercel (Frontend)
+**Vercel (Frontend):**
 | Variable | Value |
 |----------|-------|
 | `YOUTUBE_API_KEY` | Your YouTube API key |
-| `NEXT_PUBLIC_SOCKET_URL` | `https://your-server.railway.app` |
+| `NEXT_PUBLIC_SOCKET_URL` | `https://hum-sync-server.fly.dev` |
+
+---
+
+## Cost: $0
+
+| Service | Free Tier |
+|---------|-----------|
+| **Fly.io** | 3 shared VMs, always-on ✓ |
+| **Vercel** | Unlimited for personal projects |
 
 ---
 
 ## Troubleshooting
 
-### CORS Errors
-- Make sure `FRONTEND_URL` in Railway matches your Vercel domain exactly
-- Redeploy Railway after changing variables
+### "Connection refused" errors
+```bash
+flyctl logs  # Check for startup errors
+```
 
-### Socket Connection Failed
-- Check Railway logs for errors
-- Verify `NEXT_PUBLIC_SOCKET_URL` is correct in Vercel
+### CORS errors
+Make sure `FRONTEND_URL` in Fly.io matches your Vercel URL exactly:
+```bash
+flyctl secrets set FRONTEND_URL=https://exact-url.vercel.app
+```
 
-### YouTube Search Not Working
-- Verify `YOUTUBE_API_KEY` is set in Vercel
-- Check API quota in Google Cloud Console
-
----
-
-## Cost
-
-| Service | Free Tier |
-|---------|-----------|
-| Railway | 500 hours/month (~20 days continuous) |
-| Vercel | Unlimited for personal projects |
-
-For production with more traffic, Railway Pro is $5/month.
+### YouTube search not working
+Check that `YOUTUBE_API_KEY` is set in Vercel dashboard.
