@@ -3,7 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import ImmersiveContainer from '@/components/Layout/ImmersiveContainer';
+import { motion } from 'framer-motion';
+import GrainOverlay from '@/components/Effects/GrainOverlay';
+import DynamicBackground from '@/components/Effects/DynamicBackground';
+import HeartbeatAura from '@/components/Effects/HeartbeatAura';
+import LoadingScreen from '@/components/Effects/LoadingScreen';
 import NowPlaying from '@/components/UI/NowPlaying';
 import ControlBar from '@/components/UI/ControlBar';
 import SearchModal from '@/components/UI/SearchModal';
@@ -12,6 +16,7 @@ import WhisperInput from '@/components/UI/WhisperInput';
 import WhisperToast from '@/components/UI/WhisperToast';
 import { getSocket, RoomState, disconnectSocket } from '@/lib/socket';
 import { OnProgressProps } from 'react-player/base';
+import { useIdle } from '@/hooks/useIdle';
 
 // Dynamic import to avoid SSR issues
 const VideoLayer = dynamic(() => import('@/components/Player/VideoLayer'), {
@@ -41,10 +46,14 @@ export default function RoomPage() {
   const params = useParams();
   const roomId = params.id as string;
 
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
+
   // Player state
   const [videoId, setVideoId] = useState('dQw4w9WgXcQ');
   const [videoTitle, setVideoTitle] = useState('Never Gonna Give You Up');
   const [videoChannel, setVideoChannel] = useState('Rick Astley');
+  const [videoThumbnail, setVideoThumbnail] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -59,10 +68,18 @@ export default function RoomPage() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   
+  // Idle state for fade
+  const isIdle = useIdle(4000);
+  
   // Refs
   const playerRef = useRef<VideoLayerRef>(null);
   const isRemoteUpdate = useRef(false);
   const lastEmitTime = useRef(0);
+
+  // Update thumbnail when video changes
+  useEffect(() => {
+    setVideoThumbnail(`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`);
+  }, [videoId]);
 
   // Keyboard shortcut for search (CMD+K / CTRL+K)
   useEffect(() => {
@@ -90,50 +107,37 @@ export default function RoomPage() {
       setIsConnected(false);
     });
 
-    // Handle receiving state from server
     socket.on('receive_state', (state: RoomState & { title?: string; channel?: string }) => {
-      console.log('[Room] Received state:', state);
-      
-      // Mark that this is a remote update to avoid echo
       isRemoteUpdate.current = true;
 
-      // Update video if changed
       if (state.videoId !== videoId) {
         setVideoId(state.videoId);
       }
       
-      // Update title/channel if provided
       if (state.title) setVideoTitle(state.title);
       if (state.channel) setVideoChannel(state.channel);
 
-      // Update play state
       setIsPlaying(state.isPlaying);
 
-      // Seek to the correct position
       if (playerRef.current && isReady) {
         const targetTime = state.currentSeconds;
         const currentPlayerTime = playerRef.current.getCurrentTime();
         const timeDiff = Math.abs(currentPlayerTime - targetTime);
 
-        // Only seek if difference is significant (>0.5 seconds)
         if (timeDiff > 0.5) {
-          console.log(`[Sync] Seeking from ${currentPlayerTime.toFixed(2)}s to ${targetTime.toFixed(2)}s`);
           playerRef.current.seekTo(targetTime);
         }
       }
 
-      // Reset remote update flag after a short delay
       setTimeout(() => {
         isRemoteUpdate.current = false;
       }, 300);
     });
 
-    // Handle user count updates
     socket.on('user_count_update', (data: { count: number }) => {
       setUserCount(data.count);
     });
 
-    // Handle incoming chat messages
     socket.on('receive_message', (data: { message: string; senderId: string; timestamp: number }) => {
       const newMessage: ChatMessage = {
         id: `${data.timestamp}-${data.senderId}`,
@@ -142,7 +146,6 @@ export default function RoomPage() {
       setMessages(prev => [...prev, newMessage]);
     });
 
-    // Join room if already connected
     if (socket.connected) {
       setIsConnected(true);
       socket.emit('join_room', roomId);
@@ -158,10 +161,8 @@ export default function RoomPage() {
     };
   }, [roomId, isReady, videoId]);
 
-  // Emit state update to server (debounced)
   const emitStateUpdate = useCallback((playing: boolean, timestamp: number) => {
     const now = Date.now();
-    // Debounce: only emit if 100ms has passed since last emit
     if (now - lastEmitTime.current < 100) return;
     if (isRemoteUpdate.current) return;
 
@@ -174,11 +175,8 @@ export default function RoomPage() {
       isPlaying: playing,
       timestampAtLastAction: timestamp,
     });
-    
-    console.log(`[Emit] State update: playing=${playing}, timestamp=${timestamp.toFixed(2)}s`);
   }, [roomId, videoId]);
 
-  // Handle play
   const handlePlay = () => {
     if (isRemoteUpdate.current) return;
     const time = playerRef.current?.getCurrentTime() || currentTime;
@@ -186,7 +184,6 @@ export default function RoomPage() {
     emitStateUpdate(true, time);
   };
 
-  // Handle pause
   const handlePause = () => {
     if (isRemoteUpdate.current) return;
     const time = playerRef.current?.getCurrentTime() || currentTime;
@@ -194,7 +191,6 @@ export default function RoomPage() {
     emitStateUpdate(false, time);
   };
 
-  // Handle play/pause toggle from controls
   const handlePlayPause = () => {
     const time = playerRef.current?.getCurrentTime() || currentTime;
     const newPlaying = !isPlaying;
@@ -202,7 +198,6 @@ export default function RoomPage() {
     emitStateUpdate(newPlaying, time);
   };
 
-  // Handle seek from controls
   const handleSeek = (seconds: number) => {
     if (playerRef.current) {
       playerRef.current.seekTo(seconds);
@@ -211,27 +206,22 @@ export default function RoomPage() {
     }
   };
 
-  // Handle progress update
   const handleProgress = (state: OnProgressProps) => {
     setCurrentTime(state.playedSeconds);
   };
 
-  // Handle duration
   const handleDuration = (dur: number) => {
     setDuration(dur);
   };
 
-  // Handle player ready
   const handleReady = () => {
     setIsReady(true);
   };
 
-  // Handle volume change
   const handleVolumeChange = (vol: number) => {
     setVolume(vol);
   };
 
-  // Handle video selection from search
   const handleSelectVideo = (result: SearchResult) => {
     const socket = getSocket();
     socket.emit('change_video', { 
@@ -242,101 +232,134 @@ export default function RoomPage() {
     });
     setVideoTitle(result.title);
     setVideoChannel(result.channel);
+    setVideoThumbnail(result.thumbnail);
   };
 
-  // Handle sending chat message
   const handleSendMessage = (message: string) => {
     const socket = getSocket();
     socket.emit('send_message', { roomId, message });
   };
 
-  // Handle message expiration
   const handleMessageExpire = (id: string) => {
     setMessages(prev => prev.filter(m => m.id !== id));
   };
 
   return (
-    <div className="relative min-h-screen bg-[#09090b] overflow-hidden">
-      {/* Video Layer - Ambient Background */}
-      <VideoLayer
-        ref={playerRef}
-        videoId={videoId}
-        isPlaying={isPlaying}
-        onPlay={handlePlay}
-        onPause={handlePause}
-        onProgress={handleProgress}
-        onReady={handleReady}
-        onDuration={handleDuration}
-      />
+    <>
+      {/* Cinematic Loading Screen */}
+      {isLoading && <LoadingScreen onComplete={() => setIsLoading(false)} />}
 
-      {/* Whisper Toast Messages */}
-      <WhisperToast messages={messages} onMessageExpire={handleMessageExpire} />
+      {/* Film Grain Overlay */}
+      <GrainOverlay />
 
-      {/* Content Overlay */}
-      <ImmersiveContainer>
-        <div className="relative z-30 min-h-screen flex flex-col">
-          {/* Top Bar */}
-          <div className="flex items-center justify-between px-6 py-4">
-            {/* Left: Presence */}
-            <PresenceBar userCount={userCount} isConnected={isConnected} />
+      {/* Dynamic Background with Color Extraction */}
+      <DynamicBackground thumbnail={videoThumbnail}>
+        <div className="relative min-h-screen overflow-hidden">
+          {/* Video Layer - Ambient Background */}
+          <VideoLayer
+            ref={playerRef}
+            videoId={videoId}
+            isPlaying={isPlaying}
+            onPlay={handlePlay}
+            onPause={handlePause}
+            onProgress={handleProgress}
+            onReady={handleReady}
+            onDuration={handleDuration}
+          />
 
-            {/* Center: Room ID + Slogan */}
-            <div className="flex flex-col items-center">
-              <span className="text-xs tracking-[0.3em] uppercase text-zinc-600">
-                {roomId}
-              </span>
-              <span className="text-[10px] tracking-wider text-zinc-700 mt-0.5">
-                हम। तुम। धुन।
-              </span>
+          {/* Heartbeat Aura */}
+          <HeartbeatAura isPlaying={isPlaying} />
+
+          {/* Whisper Toast Messages */}
+          <WhisperToast messages={messages} onMessageExpire={handleMessageExpire} />
+
+          {/* Content Overlay with Fade-on-Idle */}
+          <motion.div
+            className="relative z-30 min-h-screen flex flex-col"
+            animate={{ opacity: isIdle ? 0 : 1 }}
+            transition={{ duration: 0.8, ease: 'easeInOut' }}
+          >
+            {/* Top Bar */}
+            <div className="flex items-center justify-between px-6 py-5">
+              {/* Left: Presence */}
+              <PresenceBar userCount={userCount} isConnected={isConnected} />
+
+              {/* Center: Room ID + Slogan */}
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] tracking-[0.4em] uppercase text-zinc-600 font-medium">
+                  {roomId}
+                </span>
+                <span className="text-[10px] tracking-wider text-zinc-700 mt-1">
+                  हम। तुम। धुन।
+                </span>
+              </div>
+
+              {/* Right: Search Button */}
+              <motion.button
+                onClick={() => setIsSearchOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 
+                           bg-white/5 backdrop-blur-sm
+                           border border-white/10 rounded-full
+                           text-xs text-zinc-400 hover:text-zinc-200 
+                           hover:bg-white/10 hover:border-white/20 
+                           transition-all"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} 
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span className="hidden sm:inline font-medium">Search</span>
+                <kbd className="hidden sm:inline px-1.5 py-0.5 bg-white/10 rounded text-[9px] font-mono">
+                  ⌘K
+                </kbd>
+              </motion.button>
             </div>
 
-            {/* Right: Search Button */}
-            <button
-              onClick={() => setIsSearchOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/50 
-                         border border-zinc-800/50 rounded-lg
-                         text-xs text-zinc-500 hover:text-zinc-400 
-                         hover:border-zinc-700 transition-all"
+            {/* Center: Now Playing */}
+            <div className="flex-1 flex items-center justify-center py-16">
+              <NowPlaying
+                title={videoTitle}
+                artist={videoChannel}
+                isPlaying={isPlaying}
+              />
+            </div>
+
+            {/* Bottom: Controls + Chat */}
+            <div className="pb-10 space-y-8">
+              <ControlBar
+                isPlaying={isPlaying}
+                currentTime={currentTime}
+                duration={duration}
+                volume={volume}
+                onPlayPause={handlePlayPause}
+                onSeek={handleSeek}
+                onVolumeChange={handleVolumeChange}
+              />
+
+              {/* Whisper Input */}
+              <div className="flex justify-center">
+                <WhisperInput onSendMessage={handleSendMessage} />
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Idle indicator */}
+          {isIdle && (
+            <motion.div
+              className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} 
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <span className="hidden sm:inline">Search</span>
-              <kbd className="hidden sm:inline px-1.5 py-0.5 bg-zinc-800 rounded text-[10px]">
-                ⌘K
-              </kbd>
-            </button>
-          </div>
-
-          {/* Center: Now Playing */}
-          <div className="flex-1 flex items-center justify-center py-16">
-            <NowPlaying
-              title={videoTitle}
-              artist={videoChannel}
-              isPlaying={isPlaying}
-            />
-          </div>
-
-          {/* Bottom: Controls + Chat */}
-          <div className="pb-8 space-y-6">
-            <ControlBar
-              isPlaying={isPlaying}
-              currentTime={currentTime}
-              duration={duration}
-              volume={volume}
-              onPlayPause={handlePlayPause}
-              onSeek={handleSeek}
-              onVolumeChange={handleVolumeChange}
-            />
-
-            {/* Whisper Input */}
-            <div className="flex justify-center">
-              <WhisperInput onSendMessage={handleSendMessage} />
-            </div>
-          </div>
+              <p className="text-zinc-700/50 text-xs tracking-[0.3em] uppercase">
+                Move to reveal
+              </p>
+            </motion.div>
+          )}
         </div>
-      </ImmersiveContainer>
+      </DynamicBackground>
 
       {/* Search Modal */}
       <SearchModal
@@ -344,6 +367,6 @@ export default function RoomPage() {
         onClose={() => setIsSearchOpen(false)}
         onSelectVideo={handleSelectVideo}
       />
-    </div>
+    </>
   );
 }
