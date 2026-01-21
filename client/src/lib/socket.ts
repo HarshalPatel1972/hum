@@ -1,8 +1,8 @@
 import { io, Socket } from 'socket.io-client';
 
+// Use environment variable for production, fallback to localhost
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
 
-// State received from server
 export interface RoomState {
   videoId: string;
   isPlaying: boolean;
@@ -12,7 +12,6 @@ export interface RoomState {
   serverTime: number;
 }
 
-// Singleton socket instance
 let socket: Socket | null = null;
 
 export const getSocket = (): Socket => {

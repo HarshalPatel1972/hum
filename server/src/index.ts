@@ -7,38 +7,41 @@ import cors from 'cors';
 interface RoomState {
   videoId: string;
   isPlaying: boolean;
-  lastActionTime: number;        // UTC Timestamp of when the Play/Pause happened
-  timestampAtLastAction: number; // The video timestamp (in seconds) when the action happened
+  lastActionTime: number;
+  timestampAtLastAction: number;
 }
 
-// Track users per room
 interface RoomUsers {
   users: Set<string>;
 }
 
-// In-memory storage
 const rooms: Map<string, RoomState> = new Map();
 const roomUsers: Map<string, RoomUsers> = new Map();
 
-// Default video to start with
-const DEFAULT_VIDEO_ID = 'dQw4w9WgXcQ'; // Never Gonna Give You Up as placeholder
+const DEFAULT_VIDEO_ID = 'dQw4w9WgXcQ';
+
+// Production CORS configuration
+const ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:3002',
+  process.env.FRONTEND_URL, // Set this in Railway
+].filter(Boolean) as string[];
 
 const app = express();
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: ALLOWED_ORIGINS,
   credentials: true
 }));
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: 'http://localhost:3000',
+    origin: ALLOWED_ORIGINS,
     methods: ['GET', 'POST'],
     credentials: true
   }
 });
 
-// Calculate current playback position based on room state
 function getCurrentPlaybackTime(state: RoomState): number {
   if (!state.isPlaying) {
     return state.timestampAtLastAction;
@@ -47,28 +50,22 @@ function getCurrentPlaybackTime(state: RoomState): number {
   return state.timestampAtLastAction + elapsed;
 }
 
-// Get user count for a room
 function getRoomUserCount(roomId: string): number {
   return roomUsers.get(roomId)?.users.size || 0;
 }
 
-// Broadcast user count update to room
 function broadcastUserCount(roomId: string) {
   const count = getRoomUserCount(roomId);
   io.to(roomId).emit('user_count_update', { count, roomId });
   console.log(`[Presence] Room ${roomId}: ${count} users`);
 }
 
-// Socket.io connection handling
 io.on('connection', (socket: Socket) => {
   console.log(`[Socket] Client connected: ${socket.id}`);
   
-  // Track which room this socket is in
   let currentRoom: string | null = null;
 
-  // Handle joining a room
   socket.on('join_room', (roomId: string) => {
-    // Leave previous room if any
     if (currentRoom) {
       socket.leave(currentRoom);
       const prevRoomUsers = roomUsers.get(currentRoom);
@@ -82,17 +79,14 @@ io.on('connection', (socket: Socket) => {
     currentRoom = roomId;
     console.log(`[Room] ${socket.id} joined room: ${roomId}`);
 
-    // Track user in room
     if (!roomUsers.has(roomId)) {
       roomUsers.set(roomId, { users: new Set() });
     }
     roomUsers.get(roomId)!.users.add(socket.id);
 
-    // Get or create room state
     let roomState = rooms.get(roomId);
     
     if (!roomState) {
-      // Create new room with default state
       roomState = {
         videoId: DEFAULT_VIDEO_ID,
         isPlaying: false,
@@ -103,23 +97,19 @@ io.on('connection', (socket: Socket) => {
       console.log(`[Room] Created new room: ${roomId}`);
     }
 
-    // Calculate current real-time timestamp for sync
     const currentSeconds = getCurrentPlaybackTime(roomState);
     
-    // Send current state to joining user with calculated timestamp
     socket.emit('receive_state', {
       ...roomState,
       currentSeconds,
       serverTime: Date.now()
     });
     
-    // Broadcast updated user count
     broadcastUserCount(roomId);
     
     console.log(`[Sync] Sent state to ${socket.id}: playing=${roomState.isPlaying}, timestamp=${currentSeconds.toFixed(2)}s`);
   });
 
-  // Handle state updates (Play/Pause/Seek)
   socket.on('update_state', (data: {
     roomId: string;
     videoId?: string;
@@ -134,7 +124,6 @@ io.on('connection', (socket: Socket) => {
       return;
     }
 
-    // Update room state
     roomState.isPlaying = isPlaying;
     roomState.timestampAtLastAction = timestampAtLastAction;
     roomState.lastActionTime = Date.now();
@@ -144,7 +133,6 @@ io.on('connection', (socket: Socket) => {
 
     console.log(`[Update] Room ${roomId}: playing=${isPlaying}, timestamp=${timestampAtLastAction.toFixed(2)}s`);
 
-    // Broadcast to all OTHER clients in the room
     socket.to(roomId).emit('receive_state', {
       ...roomState,
       currentSeconds: timestampAtLastAction,
@@ -152,7 +140,6 @@ io.on('connection', (socket: Socket) => {
     });
   });
 
-  // Handle video change
   socket.on('change_video', (data: { roomId: string; videoId: string; title?: string; channel?: string }) => {
     const { roomId, videoId, title, channel } = data;
     
@@ -174,7 +161,6 @@ io.on('connection', (socket: Socket) => {
 
     console.log(`[Video] Room ${roomId}: changed to ${videoId} - "${title}" by ${channel}`);
 
-    // Broadcast to ALL clients in the room (including sender)
     io.to(roomId).emit('receive_state', {
       ...roomState,
       currentSeconds: 0,
@@ -184,7 +170,6 @@ io.on('connection', (socket: Socket) => {
     });
   });
 
-  // Handle ephemeral chat messages
   socket.on('send_message', (data: { roomId: string; message: string }) => {
     const { roomId, message } = data;
     
@@ -192,26 +177,22 @@ io.on('connection', (socket: Socket) => {
     
     console.log(`[Chat] Room ${roomId}: "${message.substring(0, 50)}..."`);
     
-    // Broadcast to all OTHER clients in the room
     socket.to(roomId).emit('receive_message', {
       message: message.trim(),
-      senderId: socket.id.substring(0, 6), // Short ID for privacy
+      senderId: socket.id.substring(0, 6),
       timestamp: Date.now()
     });
   });
 
-  // Handle disconnect
   socket.on('disconnect', () => {
     console.log(`[Socket] Client disconnected: ${socket.id}`);
     
-    // Remove from room tracking
     if (currentRoom) {
       const users = roomUsers.get(currentRoom);
       if (users) {
         users.users.delete(socket.id);
         broadcastUserCount(currentRoom);
         
-        // Clean up empty rooms after delay
         if (users.users.size === 0) {
           setTimeout(() => {
             if (getRoomUserCount(currentRoom!) === 0) {
@@ -226,13 +207,18 @@ io.on('connection', (socket: Socket) => {
   });
 });
 
-// Health check endpoint
-app.get('/health', (_req, res) => {
+// Health check for Railway
+app.get('/', (_req, res) => {
   res.json({ 
     status: 'ok', 
+    service: 'HUM Sync Engine',
     rooms: rooms.size,
     totalUsers: Array.from(roomUsers.values()).reduce((sum, r) => sum + r.users.size, 0)
   });
+});
+
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok' });
 });
 
 const PORT = process.env.PORT || 3001;
@@ -240,7 +226,7 @@ const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
   console.log(`
 ╔═══════════════════════════════════════════╗
-║   HUM Sync Engine - Phase 3: The Lounge   ║
+║     HUM Sync Engine - Production Ready    ║
 ║              Port: ${PORT}                   ║
 ╚═══════════════════════════════════════════╝
   `);
