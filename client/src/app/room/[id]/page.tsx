@@ -160,21 +160,21 @@ export default function RoomPage() {
 
       const targetTime = state.currentSeconds || 0;
       
-      // If player is ready, seek immediately with tighter threshold
+      // If player is ready, seek immediately with ultra-tight threshold
       if (playerRef.current && isReady) {
         const currentPlayerTime = playerRef.current.getCurrentTime();
         const timeDiff = Math.abs(currentPlayerTime - targetTime);
 
-        // Tighter sync: 0.5s instead of 1s
-        if (timeDiff > 0.5) {
+        // Ultra-tight sync: 0.3s for flawless multi-device playback
+        if (timeDiff > 0.3) {
           console.log('[Sync] Seeking to:', targetTime, 'diff:', timeDiff);
           syncCooldown.current = true;
           playerRef.current.seekTo(targetTime);
           
-          // Reset cooldown after 1.5s (reduced from 2s)
+          // Shorter cooldown (1s) for more responsive sync
           setTimeout(() => {
             syncCooldown.current = false;
-          }, 1500);
+          }, 1000);
         }
       } else {
         // Player not ready yet - store pending sync
@@ -184,7 +184,7 @@ export default function RoomPage() {
 
       setTimeout(() => {
         isRemoteUpdate.current = false;
-      }, 400);
+      }, 300);
     });
 
     socket.on('user_count_update', (data: { count: number }) => {

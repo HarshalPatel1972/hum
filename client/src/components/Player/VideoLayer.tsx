@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
+import { useRef, useImperativeHandle, forwardRef, useEffect, useState } from 'react';
 import ReactPlayer from 'react-player/youtube';
 import { OnProgressProps } from 'react-player/base';
 
@@ -25,6 +25,8 @@ interface VideoLayerProps {
 const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
   ({ videoId, isPlaying, volume, onPlay, onPause, onProgress, onReady, onDuration, onEnded, thumbnail }, ref) => {
     const playerRef = useRef<ReactPlayer>(null);
+    const [internalPlaying, setInternalPlaying] = useState(false);
+    const wakeLockRef = useRef<any>(null);
 
     // IMPORTANT: useImperativeHandle must be called BEFORE any early returns!
     useImperativeHandle(ref, () => ({
@@ -38,22 +40,77 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
       },
     }), []);
 
-    // Prevent pausing when tab is hidden or app goes to background
+    // Request wake lock for mobile to prevent sleep
     useEffect(() => {
-      const preventPause = (e: Event) => {
-        e.preventDefault();
-        e.stopPropagation();
+      const requestWakeLock = async () => {
+        if ('wakeLock' in navigator && isPlaying) {
+          try {
+            wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+            console.log('[WakeLock] Screen wake lock acquired');
+          } catch (err) {
+            console.log('[WakeLock] Failed to acquire:', err);
+          }
+        }
       };
 
-      // Override visibility change behavior
-      document.addEventListener('visibilitychange', preventPause, true);
-      window.addEventListener('blur', preventPause, true);
+      requestWakeLock();
+
+      return () => {
+        if (wakeLockRef.current) {
+          wakeLockRef.current.release();
+          wakeLockRef.current = null;
+        }
+      };
+    }, [isPlaying]);
+
+    // Aggressive prevention of auto-pause on mobile
+    useEffect(() => {
+      const preventPause = (e: Event) => {
+        if (isPlaying) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          return false;
+        }
+      };
+
+      // Handle all possible pause triggers
+      document.addEventListener('visibilitychange', preventPause, { capture: true });
+      document.addEventListener('pagehide', preventPause, { capture: true });
+      document.addEventListener('freeze', preventPause, { capture: true });
+      window.addEventListener('blur', preventPause, { capture: true });
+      
+      // Mobile-specific events
+      document.addEventListener('webkitvisibilitychange', preventPause, { capture: true });
       
       return () => {
-        document.removeEventListener('visibilitychange', preventPause, true);
-        window.removeEventListener('blur', preventPause, true);
+        document.removeEventListener('visibilitychange', preventPause, { capture: true });
+        document.removeEventListener('pagehide', preventPause, { capture: true });
+        document.removeEventListener('freeze', preventPause, { capture: true });
+        window.removeEventListener('blur', preventPause, { capture: true });
+        document.removeEventListener('webkitvisibilitychange', preventPause, { capture: true });
       };
-    }, []);
+    }, [isPlaying]);
+
+    // Force playing state on visibility change
+    useEffect(() => {
+      const handleVisibilityChange = () => {
+        if (document.hidden && isPlaying && playerRef.current) {
+          // Force continue playing
+          const player = playerRef.current.getInternalPlayer();
+          if (player && player.playVideo) {
+            setTimeout(() => player.playVideo(), 100);
+          }
+        }
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [isPlaying]);
+
+    // Sync internal state
+    useEffect(() => {
+      setInternalPlaying(isPlaying);
+    }, [isPlaying]);
 
     // Don't render if no video
     if (!videoId) {
@@ -85,7 +142,7 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
           <ReactPlayer
             ref={playerRef}
             url={url}
-            playing={isPlaying}
+            playing={internalPlaying}
             controls={false}
             width="1px"
             height="1px"
@@ -99,6 +156,7 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
             volume={volume}
             muted={false}
             playsinline={true}
+            pip={false}
             config={{
               playerVars: {
                 modestbranding: 1,
@@ -109,6 +167,7 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
                 fs: 0,
                 iv_load_policy: 3,
                 playsinline: 1,
+                enablejsapi: 1,
               },
             }}
           />
@@ -124,4 +183,3 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
 VideoLayer.displayName = 'VideoLayer';
 
 export default VideoLayer;
-
