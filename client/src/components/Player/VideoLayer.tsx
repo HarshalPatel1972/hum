@@ -65,9 +65,10 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
             onReady={onReady}
             onDuration={onDuration}
             onEnded={onEnded}
-            progressInterval={100}
+            progressInterval={500}
             volume={volume}
             muted={false}
+            playsinline={true}
             config={{
               playerVars: {
                 modestbranding: 1,
@@ -77,6 +78,7 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
                 disablekb: 1,
                 fs: 0,
                 iv_load_policy: 3,
+                playsinline: 1,
               },
             }}
           />

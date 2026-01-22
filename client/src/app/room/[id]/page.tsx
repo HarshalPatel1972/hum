@@ -69,6 +69,7 @@ export default function RoomPage() {
   const isRemoteUpdate = useRef(false);
   const lastEmitTime = useRef(0);
   const pendingSync = useRef<{ time: number; playing: boolean } | null>(null);
+  const syncCooldown = useRef(false);
 
   // Update thumbnail when video changes
   useEffect(() => {
@@ -138,6 +139,12 @@ export default function RoomPage() {
 
       setIsPlaying(state.isPlaying);
 
+      // Ignore updates during cooldown
+      if (syncCooldown.current) {
+        console.log('[Sync] Ignoring update during cooldown');
+        return;
+      }
+
       const targetTime = state.currentSeconds || 0;
       
       // If player is ready, seek immediately
@@ -145,9 +152,15 @@ export default function RoomPage() {
         const currentPlayerTime = playerRef.current.getCurrentTime();
         const timeDiff = Math.abs(currentPlayerTime - targetTime);
 
-        if (timeDiff > 0.5) {
+        if (timeDiff > 1.0) { // Increased threshold to 1s to be less aggressive
           console.log('[Sync] Seeking to:', targetTime);
+          syncCooldown.current = true; // Set cooldown
           playerRef.current.seekTo(targetTime);
+          
+          // Reset cooldown after 2 seconds
+          setTimeout(() => {
+            syncCooldown.current = false;
+          }, 2000);
         }
       } else {
         // Player not ready yet - store pending sync
@@ -157,7 +170,7 @@ export default function RoomPage() {
 
       setTimeout(() => {
         isRemoteUpdate.current = false;
-      }, 300);
+      }, 500); // Increased buffer time
     });
 
     socket.on('user_count_update', (data: { count: number }) => {
