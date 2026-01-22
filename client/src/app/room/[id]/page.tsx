@@ -403,6 +403,7 @@ export default function RoomPage() {
             videoId={videoId}
             isPlaying={isPlaying}
             volume={volume}
+            thumbnail={videoThumbnail}
             onPlay={handlePlay}
             onPause={handlePause}
             onProgress={handleProgress}

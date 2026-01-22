@@ -19,19 +19,18 @@ interface VideoLayerProps {
   onReady: () => void;
   onDuration: (duration: number) => void;
   onEnded?: () => void;
+  thumbnail?: string | null;
 }
 
 const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
-  ({ videoId, isPlaying, volume, onPlay, onPause, onProgress, onReady, onDuration, onEnded }, ref) => {
+  ({ videoId, isPlaying, volume, onPlay, onPause, onProgress, onReady, onDuration, onEnded, thumbnail }, ref) => {
     const playerRef = useRef<ReactPlayer>(null);
 
     // IMPORTANT: useImperativeHandle must be called BEFORE any early returns!
     useImperativeHandle(ref, () => ({
       seekTo: (seconds: number) => {
-        console.log('[VideoLayer.seekTo] Called with:', seconds, 'playerRef:', !!playerRef.current);
         if (playerRef.current) {
           playerRef.current.seekTo(seconds, 'seconds');
-          console.log('[VideoLayer.seekTo] Done');
         }
       },
       getCurrentTime: () => {
@@ -39,7 +38,7 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
       },
     }), []);
 
-    // Don't render player if no video - but ref is still available!
+    // Don't render if no video
     if (!videoId) {
       return (
         <div className="absolute inset-0 bg-gradient-to-b from-zinc-900 to-[#09090b]" />
@@ -50,15 +49,29 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
 
     return (
       <div className="absolute inset-0 overflow-hidden">
-        {/* The Video - Cinematic Filter Layer */}
-        <div className="absolute inset-0 scale-150 grayscale opacity-30 blur-sm mix-blend-overlay">
+        {/* Blurred Thumbnail Background */}
+        {thumbnail && (
+          <div 
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${thumbnail})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              filter: 'blur(60px) brightness(0.4)',
+              transform: 'scale(1.2)',
+            }}
+          />
+        )}
+
+        {/* Hidden Audio Player - audio only, no visual */}
+        <div className="absolute opacity-0 pointer-events-none" style={{ width: 1, height: 1 }}>
           <ReactPlayer
             ref={playerRef}
             url={url}
             playing={isPlaying}
             controls={false}
-            width="100%"
-            height="100%"
+            width="1px"
+            height="1px"
             onPlay={onPlay}
             onPause={onPause}
             onProgress={onProgress}
@@ -84,15 +97,8 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
           />
         </div>
 
-        {/* Glass Wall - Blocks all YouTube interactions */}
-        <div 
-          className="absolute inset-0 z-10"
-          style={{ pointerEvents: 'all' }}
-          aria-hidden="true"
-        />
-
         {/* Gradient Overlay for depth */}
-        <div className="absolute inset-0 z-20 bg-gradient-to-t from-[#09090b] via-transparent to-[#09090b]/80" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-transparent to-[#09090b]/80" />
       </div>
     );
   }
