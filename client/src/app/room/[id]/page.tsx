@@ -306,9 +306,9 @@ export default function RoomPage() {
             className="relative z-30 min-h-screen flex flex-col"
           >
             {/* Top Bar */}
-            <div className="flex items-center justify-between px-6 py-5">
-              {/* Left: Back Button + Presence */}
-              <div className="flex items-center gap-4">
+            <div className="flex items-start justify-between px-6 py-5">
+              {/* Left: Back Button + Listener Count */}
+              <div className="flex flex-col items-start gap-2">
                 <motion.button
                   onClick={() => router.back()}
                   className="flex items-center justify-center w-8 h-8 rounded-full
@@ -322,16 +322,19 @@ export default function RoomPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                   </svg>
                 </motion.button>
-                <PresenceBar userCount={userCount} isConnected={isConnected} />
+                <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-zinc-600'}`} />
+                  <span>{userCount} listening</span>
+                </div>
               </div>
 
               {/* Center: Room ID + Slogan */}
-              <div className="flex flex-col items-center gap-1">
+              <div className="absolute left-1/2 top-5 -translate-x-1/2 flex flex-col items-center gap-1">
                 <span className="text-[10px] tracking-[0.4em] uppercase text-zinc-600 font-medium">
                   {roomId}
                 </span>
-                <span className="text-[10px] tracking-wider text-zinc-700 mt-2">
-                  हम। तुम। धुन।
+                <span className="text-[10px] tracking-wider text-zinc-700 mt-1">
+                  हम | तुम | धुन
                 </span>
               </div>
 

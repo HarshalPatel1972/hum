@@ -209,41 +209,6 @@ export default function ControlBar({
           </svg>
         </motion.button>
       </div>
-
-      {/* Volume Control */}
-      <div className="flex items-center justify-center gap-3 mt-8">
-        <svg className="w-4 h-4 text-zinc-600" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M11.5 5L7 9H3v6h4l4.5 4V5z" />
-        </svg>
-        <div className="relative w-24 h-6 flex items-center">
-          {/* Track background */}
-          <div className="absolute left-0 right-0 h-1 bg-zinc-700 rounded-full" />
-          {/* Filled track */}
-          <div 
-            className="absolute left-0 h-1 bg-zinc-400 rounded-full" 
-            style={{ width: `${volume * 100}%` }}
-          />
-          {/* Actual slider input */}
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={volume}
-            onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-            className="absolute inset-0 w-full opacity-0 cursor-pointer"
-          />
-          {/* Thumb indicator */}
-          <div 
-            className="absolute w-3 h-3 bg-white rounded-full shadow-md pointer-events-none"
-            style={{ left: `calc(${volume * 100}% - 6px)` }}
-          />
-        </div>
-        <svg className="w-4 h-4 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M11.5 5L7 9H3v6h4l4.5 4V5z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 8.5a4 4 0 010 7M18 6a7 7 0 010 12" />
-        </svg>
-      </div>
     </div>
   );
 }
