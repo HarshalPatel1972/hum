@@ -9,24 +9,22 @@ interface VoiceChatProps {
   userCount: number;
 }
 
-interface PeerConnection {
-  peerId: string;
-  connection: RTCPeerConnection;
-}
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ]
+};
 
-export default function VoiceChat({ roomId, userCount }: VoiceChatProps) {
+export default function VoiceChat({ roomId }: VoiceChatProps) {
   const [isEnabled, setIsEnabled] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [activeSpeakers, setActiveSpeakers] = useState<Set<string>>(new Set());
+  const [connectedPeers, setConnectedPeers] = useState<Set<string>>(new Set());
+  
   const localStreamRef = useRef<MediaStream | null>(null);
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
-
-  const ICE_SERVERS = {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-    ]
-  };
+  const audioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
 
   // Cleanup on unmount
   useEffect(() => {
@@ -35,75 +33,106 @@ export default function VoiceChat({ roomId, userCount }: VoiceChatProps) {
     };
   }, []);
 
-  // Handle WebRTC signaling
+  // WebRTC Signaling
   useEffect(() => {
     if (!isEnabled) return;
 
     const socket = getSocket();
 
+    // Handle receiving an offer from another peer
     socket.on('voice:offer', async ({ offer, senderId }: { offer: RTCSessionDescriptionInit; senderId: string }) => {
       console.log('[Voice] Received offer from', senderId);
-      const pc = await createPeerConnection(senderId);
+      
+      if (peersRef.current.has(senderId)) {
+        console.log('[Voice] Already connected to', senderId);
+        return;
+      }
+
+      const pc = createPeerConnection(senderId);
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
+      
       socket.emit('voice:answer', { roomId, answer, targetId: senderId });
     });
 
+    // Handle receiving an answer
     socket.on('voice:answer', async ({ answer, senderId }: { answer: RTCSessionDescriptionInit; senderId: string }) => {
       console.log('[Voice] Received answer from', senderId);
       const pc = peersRef.current.get(senderId);
-      if (pc) {
+      if (pc && pc.signalingState !== 'stable') {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
       }
     });
 
+    // Handle ICE candidates
     socket.on('voice:ice-candidate', async ({ candidate, senderId }: { candidate: RTCIceCandidateInit; senderId: string }) => {
       const pc = peersRef.current.get(senderId);
       if (pc && candidate) {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.error('[Voice] Error adding ICE candidate:', e);
+        }
       }
     });
 
-    socket.on('voice:user-toggle', ({ userId, enabled }: { userId: string; enabled: boolean }) => {
-      if (enabled && !peersRef.current.has(userId)) {
-        createOffer(userId);
-      } else if (!enabled) {
-        closePeerConnection(userId);
+    // Handle when another user enables voice
+    socket.on('voice:user-enabled', ({ userId }: { userId: string }) => {
+      console.log('[Voice] User enabled voice:', userId);
+      // Create offer to the new user
+      if (!peersRef.current.has(userId)) {
+        createOfferForPeer(userId);
       }
+    });
+
+    // Handle when a user disables voice
+    socket.on('voice:user-disabled', ({ userId }: { userId: string }) => {
+      console.log('[Voice] User disabled voice:', userId);
+      closePeerConnection(userId);
     });
 
     return () => {
       socket.off('voice:offer');
       socket.off('voice:answer');
       socket.off('voice:ice-candidate');
-      socket.off('voice:user-toggle');
+      socket.off('voice:user-enabled');
+      socket.off('voice:user-disabled');
     };
   }, [isEnabled, roomId]);
 
-  const createPeerConnection = async (peerId: string): Promise<RTCPeerConnection> => {
+  const createPeerConnection = (peerId: string): RTCPeerConnection => {
+    console.log('[Voice] Creating peer connection for', peerId);
+    
     const pc = new RTCPeerConnection(ICE_SERVERS);
     peersRef.current.set(peerId, pc);
 
-    // Add local stream
+    // Add local stream tracks
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => {
         pc.addTrack(track, localStreamRef.current!);
       });
     }
 
-    // Handle incoming audio
+    // Handle incoming tracks
     pc.ontrack = (event) => {
-      const audio = new Audio();
+      console.log('[Voice] Received track from', peerId);
+      
+      let audio = audioElementsRef.current.get(peerId);
+      if (!audio) {
+        audio = new Audio();
+        audio.autoplay = true;
+        audioElementsRef.current.set(peerId, audio);
+      }
+      
       audio.srcObject = event.streams[0];
       audio.play().catch(e => console.error('[Voice] Audio play error:', e));
       
+      setConnectedPeers(prev => new Set(prev).add(peerId));
+      
       // Voice activity detection
-      const audioContext = new AudioContext();
-      const source = audioContext.createMediaStreamSource(event.streams[0]);
-      const analyser = audioContext.createAnalyser();
-      source.connect(analyser);
-      detectSpeaking(analyser, peerId);
+      detectSpeaking(event.streams[0], peerId);
     };
 
     // Handle ICE candidates
@@ -111,20 +140,35 @@ export default function VoiceChat({ roomId, userCount }: VoiceChatProps) {
       if (event.candidate) {
         getSocket().emit('voice:ice-candidate', {
           roomId,
-          candidate: event.candidate,
+          candidate: event.candidate.toJSON(),
           targetId: peerId
         });
+      }
+    };
+
+    // Handle connection state changes
+    pc.onconnectionstatechange = () => {
+      console.log('[Voice] Connection state with', peerId, ':', pc.connectionState);
+      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+        closePeerConnection(peerId);
       }
     };
 
     return pc;
   };
 
-  const createOffer = async (peerId: string) => {
+  const createOfferForPeer = async (peerId: string) => {
     console.log('[Voice] Creating offer for', peerId);
-    const pc = await createPeerConnection(peerId);
+    
+    if (peersRef.current.has(peerId)) {
+      console.log('[Voice] Already has connection with', peerId);
+      return;
+    }
+
+    const pc = createPeerConnection(peerId);
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
+    
     getSocket().emit('voice:offer', { roomId, offer, targetId: peerId });
   };
 
@@ -134,17 +178,43 @@ export default function VoiceChat({ roomId, userCount }: VoiceChatProps) {
       pc.close();
       peersRef.current.delete(peerId);
     }
+    
+    const audio = audioElementsRef.current.get(peerId);
+    if (audio) {
+      audio.pause();
+      audio.srcObject = null;
+      audioElementsRef.current.delete(peerId);
+    }
+    
+    setConnectedPeers(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(peerId);
+      return newSet;
+    });
+    
+    setActiveSpeakers(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(peerId);
+      return newSet;
+    });
   };
 
-  const detectSpeaking = (analyser: AnalyserNode, peerId: string) => {
+  const detectSpeaking = (stream: MediaStream, peerId: string) => {
+    const audioContext = new AudioContext();
+    const source = audioContext.createMediaStreamSource(stream);
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 512;
+    source.connect(analyser);
+    
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    
     const checkVolume = () => {
       analyser.getByteFrequencyData(dataArray);
       const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
       
       setActiveSpeakers(prev => {
         const newSet = new Set(prev);
-        if (average > 20) {
+        if (average > 25) {
           newSet.add(peerId);
         } else {
           newSet.delete(peerId);
@@ -152,8 +222,11 @@ export default function VoiceChat({ roomId, userCount }: VoiceChatProps) {
         return newSet;
       });
       
-      requestAnimationFrame(checkVolume);
+      if (peersRef.current.has(peerId)) {
+        requestAnimationFrame(checkVolume);
+      }
     };
+    
     checkVolume();
   };
 
@@ -166,10 +239,14 @@ export default function VoiceChat({ roomId, userCount }: VoiceChatProps) {
           autoGainControl: true,
         } 
       });
+      
       localStreamRef.current = stream;
       setIsEnabled(true);
-      getSocket().emit('voice:toggle', { roomId, enabled: true });
-      console.log('[Voice] Started');
+      
+      // Notify room that I've enabled voice
+      getSocket().emit('voice:enabled', { roomId });
+      
+      console.log('[Voice] Started - waiting for peers');
     } catch (error) {
       console.error('[Voice] Failed to start:', error);
       alert('Could not access microphone. Please check permissions.');
@@ -177,15 +254,32 @@ export default function VoiceChat({ roomId, userCount }: VoiceChatProps) {
   };
 
   const stopVoiceChat = () => {
+    // Stop local stream
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
     }
-    peersRef.current.forEach(pc => pc.close());
+    
+    // Close all peer connections
+    peersRef.current.forEach((pc, peerId) => {
+      pc.close();
+    });
     peersRef.current.clear();
+    
+    // Stop all audio elements
+    audioElementsRef.current.forEach(audio => {
+      audio.pause();
+      audio.srcObject = null;
+    });
+    audioElementsRef.current.clear();
+    
     setIsEnabled(false);
+    setConnectedPeers(new Set());
     setActiveSpeakers(new Set());
-    getSocket().emit('voice:toggle', { roomId, enabled: false });
+    
+    // Notify room
+    getSocket().emit('voice:disabled', { roomId });
+    
     console.log('[Voice] Stopped');
   };
 
@@ -211,7 +305,7 @@ export default function VoiceChat({ roomId, userCount }: VoiceChatProps) {
       {/* Voice Toggle Button */}
       <motion.button
         onClick={toggleVoice}
-        className={`relative w-12 h-12 rounded-full flex items-center justify-center
+        className={`relative w-11 h-11 rounded-full flex items-center justify-center
                    backdrop-blur-md border transition-all ${
           isEnabled
             ? 'bg-green-500/20 border-green-500/50 text-green-400'
@@ -243,7 +337,7 @@ export default function VoiceChat({ roomId, userCount }: VoiceChatProps) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             onClick={toggleMute}
-            className={`w-10 h-10 rounded-full flex items-center justify-center
+            className={`w-9 h-9 rounded-full flex items-center justify-center
                        backdrop-blur-md border transition-all ${
               isMuted
                 ? 'bg-red-500/20 border-red-500/50 text-red-400'
@@ -269,21 +363,23 @@ export default function VoiceChat({ roomId, userCount }: VoiceChatProps) {
 
       {/* Active speakers indicator */}
       <AnimatePresence>
-        {isEnabled && activeSpeakers.size > 0 && (
+        {isEnabled && (connectedPeers.size > 0 || activeSpeakers.size > 0) && (
           <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -10 }}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full
                        bg-green-500/10 border border-green-500/30"
           >
-            <motion.div
-              className="w-2 h-2 rounded-full bg-green-400"
-              animate={{ scale: [1, 1.3, 1] }}
-              transition={{ duration: 1, repeat: Infinity }}
-            />
-            <span className="text-xs text-green-400 font-medium">
-              {activeSpeakers.size} speaking
+            {activeSpeakers.size > 0 && (
+              <motion.div
+                className="w-1.5 h-1.5 rounded-full bg-green-400"
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{ duration: 1, repeat: Infinity }}
+              />
+            )}
+            <span className="text-[10px] text-green-400 font-medium">
+              {connectedPeers.size} connected
             </span>
           </motion.div>
         )}

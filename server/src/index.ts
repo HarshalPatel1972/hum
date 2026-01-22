@@ -208,11 +208,19 @@ io.on('connection', (socket: Socket) => {
     });
   });
 
-  socket.on('voice:toggle', (data: { roomId: string; enabled: boolean }) => {
-    console.log(`[Voice] ${socket.id} voice ${data.enabled ? 'enabled' : 'disabled'}`);
-    socket.to(data.roomId).emit('voice:user-toggle', {
-      userId: socket.id,
-      enabled: data.enabled
+  // When a user enables voice - notify ALL others in room
+  socket.on('voice:enabled', (data: { roomId: string }) => {
+    console.log(`[Voice] ${socket.id} enabled voice in room ${data.roomId}`);
+    socket.to(data.roomId).emit('voice:user-enabled', {
+      userId: socket.id
+    });
+  });
+
+  // When a user disables voice - notify ALL others in room
+  socket.on('voice:disabled', (data: { roomId: string }) => {
+    console.log(`[Voice] ${socket.id} disabled voice in room ${data.roomId}`);
+    socket.to(data.roomId).emit('voice:user-disabled', {
+      userId: socket.id
     });
   });
 
