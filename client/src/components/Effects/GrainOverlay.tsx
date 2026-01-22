@@ -1,62 +1,15 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-
+// Simple CSS grain effect - much lighter than canvas animation
 export default function GrainOverlay() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Set canvas size
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resize();
-    window.addEventListener('resize', resize);
-
-    // Generate noise frame
-    const generateNoise = () => {
-      const imageData = ctx.createImageData(canvas.width, canvas.height);
-      const data = imageData.data;
-
-      for (let i = 0; i < data.length; i += 4) {
-        const noise = Math.random() * 255;
-        data[i] = noise;     // R
-        data[i + 1] = noise; // G
-        data[i + 2] = noise; // B
-        data[i + 3] = 8;     // Alpha (very subtle)
-      }
-
-      ctx.putImageData(imageData, 0, 0);
-    };
-
-    // Animate noise
-    let animationId: number;
-    const animate = () => {
-      generateNoise();
-      animationId = requestAnimationFrame(animate);
-    };
-    
-    // Slower animation for performance
-    const intervalId = setInterval(generateNoise, 100);
-
-    return () => {
-      window.removeEventListener('resize', resize);
-      cancelAnimationFrame(animationId);
-      clearInterval(intervalId);
-    };
-  }, []);
-
   return (
-    <canvas
-      ref={canvasRef}
-      className="pointer-events-none fixed inset-0 z-50 opacity-[0.03] mix-blend-overlay"
+    <div 
+      className="pointer-events-none fixed inset-0 z-50 opacity-[0.03]"
+      style={{
+        backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 400 400\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' /%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\' /%3E%3C/svg%3E")',
+        backgroundRepeat: 'repeat',
+        mixBlendMode: 'overlay'
+      }}
       aria-hidden="true"
     />
   );
