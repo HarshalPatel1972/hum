@@ -232,10 +232,14 @@ export default function RoomPage() {
   };
 
   const handleSeek = (seconds: number) => {
+    console.log('[handleSeek] Called with:', seconds, 'playerRef:', !!playerRef.current);
     if (playerRef.current) {
+      console.log('[handleSeek] Calling seekTo...');
       playerRef.current.seekTo(seconds);
       setCurrentTime(seconds);
       emitStateUpdate(isPlaying, seconds);
+    } else {
+      console.log('[handleSeek] playerRef is null!');
     }
   };
 

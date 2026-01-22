@@ -26,7 +26,11 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
 
     useImperativeHandle(ref, () => ({
       seekTo: (seconds: number) => {
-        playerRef.current?.seekTo(seconds, 'seconds');
+        console.log('[VideoLayer.seekTo] Called with:', seconds, 'playerRef:', !!playerRef.current);
+        if (playerRef.current) {
+          playerRef.current.seekTo(seconds, 'seconds');
+          console.log('[VideoLayer.seekTo] Done');
+        }
       },
       getCurrentTime: () => {
         return playerRef.current?.getCurrentTime() || 0;
