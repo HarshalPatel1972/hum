@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import GrainOverlay from '@/components/Effects/GrainOverlay';
 import DynamicBackground from '@/components/Effects/DynamicBackground';
@@ -11,22 +10,12 @@ import LoadingScreen from '@/components/Effects/LoadingScreen';
 import NowPlaying from '@/components/UI/NowPlaying';
 import ControlBar from '@/components/UI/ControlBar';
 import SearchModal from '@/components/UI/SearchModal';
-import PresenceBar from '@/components/UI/PresenceBar';
 import WhisperInput from '@/components/UI/WhisperInput';
 import WhisperToast from '@/components/UI/WhisperToast';
+import VideoLayer, { VideoLayerRef } from '@/components/Player/VideoLayer';
 import { getSocket, RoomState, disconnectSocket } from '@/lib/socket';
 import { OnProgressProps } from 'react-player/base';
 // Removed idle hook - no longer fading on idle
-
-// Dynamic import to avoid SSR issues
-const VideoLayer = dynamic(() => import('@/components/Player/VideoLayer'), {
-  ssr: false,
-});
-
-interface VideoLayerRef {
-  seekTo: (seconds: number) => void;
-  getCurrentTime: () => number;
-}
 
 interface SearchResult {
   videoId: string;
