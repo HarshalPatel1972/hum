@@ -70,6 +70,7 @@ export default function RoomPage() {
   const lastEmitTime = useRef(0);
   const pendingSync = useRef<{ time: number; playing: boolean } | null>(null);
   const syncCooldown = useRef(false);
+  const isInitialLoad = useRef(true);
 
   // Update thumbnail when video changes
   useEffect(() => {
@@ -137,7 +138,15 @@ export default function RoomPage() {
       if (state.title) setVideoTitle(state.title);
       if (state.channel) setVideoChannel(state.channel);
 
-      setIsPlaying(state.isPlaying);
+      // On initial load, start paused so user can "continue"
+      let shouldPlay = state.isPlaying;
+      if (isInitialLoad.current) {
+        console.log('[Sync] Initial load - starting paused');
+        shouldPlay = false;
+        isInitialLoad.current = false;
+      }
+
+      setIsPlaying(shouldPlay);
 
       // Ignore updates during cooldown
       if (syncCooldown.current) {
@@ -165,7 +174,7 @@ export default function RoomPage() {
       } else {
         // Player not ready yet - store pending sync
         console.log('[Sync] Player not ready, storing pending sync:', targetTime);
-        pendingSync.current = { time: targetTime, playing: state.isPlaying };
+        pendingSync.current = { time: targetTime, playing: shouldPlay };
       }
 
       setTimeout(() => {
