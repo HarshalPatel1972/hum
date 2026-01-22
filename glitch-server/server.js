@@ -31,7 +31,7 @@ const io = new Server(httpServer, {
   }
 });
 
-// Calculate current playback position
+// Calculate current playback position based on server time
 function getCurrentPlaybackTime(state) {
   if (!state.isPlaying) {
     return state.timestampAtLastAction;
@@ -82,18 +82,28 @@ io.on('connection', (socket) => {
         videoId: DEFAULT_VIDEO_ID,
         isPlaying: false,
         lastActionTime: Date.now(),
-        timestampAtLastAction: 0
+        timestampAtLastAction: 0,
+        title: '',
+        channel: ''
       };
       rooms.set(roomId, roomState);
       console.log(`[Room] Created new room: ${roomId}`);
     }
 
+    // Calculate CURRENT playback position for late joiners
     const currentSeconds = getCurrentPlaybackTime(roomState);
     
+    console.log(`[Sync] Late joiner ${socket.id}: sending position ${currentSeconds.toFixed(2)}s, playing=${roomState.isPlaying}`);
+    
     socket.emit('receive_state', {
-      ...roomState,
-      currentSeconds,
-      serverTime: Date.now()
+      videoId: roomState.videoId,
+      isPlaying: roomState.isPlaying,
+      lastActionTime: roomState.lastActionTime,
+      timestampAtLastAction: roomState.timestampAtLastAction,
+      currentSeconds: currentSeconds,
+      serverTime: Date.now(),
+      title: roomState.title || '',
+      channel: roomState.channel || ''
     });
     
     broadcastUserCount(roomId);
@@ -112,36 +122,48 @@ io.on('connection', (socket) => {
 
     console.log(`[Update] Room ${roomId}: playing=${isPlaying}, timestamp=${timestampAtLastAction.toFixed(2)}s`);
 
+    // Broadcast to ALL others in room
     socket.to(roomId).emit('receive_state', {
-      ...roomState,
+      videoId: roomState.videoId,
+      isPlaying: roomState.isPlaying,
+      lastActionTime: roomState.lastActionTime,
+      timestampAtLastAction: timestampAtLastAction,
       currentSeconds: timestampAtLastAction,
       serverTime: Date.now()
     });
   });
 
   socket.on('change_video', (data) => {
-    const { roomId, videoId, title, channel } = data;
+    const { roomId, videoId, title, channel, autoPlay } = data;
     
     let roomState = rooms.get(roomId);
     if (!roomState) {
       roomState = {
         videoId,
-        isPlaying: false,
+        isPlaying: autoPlay || false,
         lastActionTime: Date.now(),
-        timestampAtLastAction: 0
+        timestampAtLastAction: 0,
+        title: title || '',
+        channel: channel || ''
       };
       rooms.set(roomId, roomState);
     } else {
       roomState.videoId = videoId;
-      roomState.isPlaying = false;
+      roomState.isPlaying = autoPlay || false;
       roomState.lastActionTime = Date.now();
       roomState.timestampAtLastAction = 0;
+      roomState.title = title || '';
+      roomState.channel = channel || '';
     }
 
-    console.log(`[Video] Room ${roomId}: changed to ${videoId}`);
+    console.log(`[Video] Room ${roomId}: changed to ${videoId}, autoPlay=${autoPlay}`);
 
+    // Broadcast to ALL in room (including sender for consistency)
     io.to(roomId).emit('receive_state', {
-      ...roomState,
+      videoId: roomState.videoId,
+      isPlaying: roomState.isPlaying,
+      lastActionTime: roomState.lastActionTime,
+      timestampAtLastAction: 0,
       currentSeconds: 0,
       serverTime: Date.now(),
       title,
@@ -204,7 +226,7 @@ const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
   console.log(`
 ╔═══════════════════════════════════════════╗
-║       HUM Sync Engine - Glitch            ║
+║       HUM Sync Engine - Production        ║
 ║              Port: ${PORT}                   ║
 ╚═══════════════════════════════════════════╝
   `);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import GrainOverlay from '@/components/Effects/GrainOverlay';
@@ -44,6 +44,7 @@ interface ChatMessage {
 
 export default function RoomPage() {
   const params = useParams();
+  const router = useRouter();
   const roomId = params.id as string;
 
   // Loading state
@@ -227,11 +228,13 @@ export default function RoomPage() {
       roomId, 
       videoId: result.videoId,
       title: result.title,
-      channel: result.channel
+      channel: result.channel,
+      autoPlay: true  // Auto-play when selecting
     });
     setVideoTitle(result.title);
     setVideoChannel(result.channel);
     setVideoThumbnail(result.thumbnail);
+    setIsPlaying(true);  // Auto-play locally
   };
 
   const handleSendMessage = (message: string) => {
@@ -278,8 +281,23 @@ export default function RoomPage() {
           >
             {/* Top Bar */}
             <div className="flex items-center justify-between px-6 py-5">
-              {/* Left: Presence */}
-              <PresenceBar userCount={userCount} isConnected={isConnected} />
+              {/* Left: Back Button + Presence */}
+              <div className="flex items-center gap-4">
+                <motion.button
+                  onClick={() => router.back()}
+                  className="flex items-center justify-center w-8 h-8 rounded-full
+                             bg-white/5 hover:bg-white/10 border border-white/10
+                             text-zinc-400 hover:text-white transition-all"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  aria-label="Go back"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </motion.button>
+                <PresenceBar userCount={userCount} isConnected={isConnected} />
+              </div>
 
               {/* Center: Room ID + Slogan */}
               <div className="flex flex-col items-center gap-1">
