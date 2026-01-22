@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useImperativeHandle, forwardRef } from 'react';
+import { useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import ReactPlayer from 'react-player/youtube';
 import { OnProgressProps } from 'react-player/base';
 
@@ -37,6 +37,23 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
         return playerRef.current?.getCurrentTime() || 0;
       },
     }), []);
+
+    // Prevent pausing when tab is hidden or app goes to background
+    useEffect(() => {
+      const preventPause = (e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+
+      // Override visibility change behavior
+      document.addEventListener('visibilitychange', preventPause, true);
+      window.addEventListener('blur', preventPause, true);
+      
+      return () => {
+        document.removeEventListener('visibilitychange', preventPause, true);
+        window.removeEventListener('blur', preventPause, true);
+      };
+    }, []);
 
     // Don't render if no video
     if (!videoId) {
@@ -107,3 +124,4 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
 VideoLayer.displayName = 'VideoLayer';
 
 export default VideoLayer;
+

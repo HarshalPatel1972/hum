@@ -426,28 +426,22 @@ export default function RoomPage() {
           >
             {/* Top Bar */}
             <div className="flex items-start justify-between px-6 py-5">
-              {/* Left: Back Button + Listener Count */}
-              <div className="flex flex-col items-start gap-2">
-                <motion.button
-                  onClick={() => router.back()}
-                  className="flex items-center justify-center w-8 h-8 rounded-full
-                             bg-white/5 hover:bg-white/10 border border-white/10
-                             text-zinc-400 hover:text-white transition-all"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  aria-label="Go back"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </motion.button>
-                <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-zinc-600'}`} />
-                  <span>{userCount} listening</span>
-                </div>
-              </div>
+              {/* Left: Back Button */}
+              <motion.button
+                onClick={() => router.back()}
+                className="flex items-center justify-center w-8 h-8 rounded-full
+                           bg-white/5 hover:bg-white/10 border border-white/10
+                           text-zinc-400 hover:text-white transition-all"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                aria-label="Go back"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </motion.button>
 
-              {/* Center: Room ID + Slogan */}
+              {/* Center: Room ID + Slogan + Listener Count */}
               <div className="absolute left-1/2 top-5 -translate-x-1/2 flex flex-col items-center gap-1">
                 <span className="text-[10px] tracking-[0.4em] uppercase text-zinc-600 font-medium">
                   {roomId}
@@ -455,33 +449,34 @@ export default function RoomPage() {
                 <span className="text-[10px] tracking-wider text-zinc-700 mt-1">
                   हम | तुम | धुन
                 </span>
+                {/* Listener Count - Centered & moved here */}
+                <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 mt-2">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-zinc-600'}`} />
+                  <span>{userCount} listening</span>
+                </div>
               </div>
 
-              {/* Right: Voice Chat + Search Button */}
-              <div className="flex items-center gap-3">
-                <VoiceChat roomId={roomId} userCount={userCount} />
-                
-                <motion.button
-                  onClick={openSearch}
-                  className="flex items-center gap-2 px-4 py-2 
-                             bg-white/5 backdrop-blur-sm
-                             border border-white/10 rounded-full
-                             text-xs text-zinc-400 hover:text-zinc-200 
-                             hover:bg-white/10 hover:border-white/20 
-                             transition-all"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} 
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <span className="hidden sm:inline font-medium">Search</span>
-                  <kbd className="hidden sm:inline px-1.5 py-0.5 bg-white/10 rounded text-[9px] font-mono">
-                    ⌘K
-                  </kbd>
-                </motion.button>
-              </div>
+              {/* Right: Search Button */}
+              <motion.button
+                onClick={openSearch}
+                className="flex items-center gap-2 px-4 py-2 
+                           bg-white/5 backdrop-blur-sm
+                           border border-white/10 rounded-full
+                           text-xs text-zinc-400 hover:text-zinc-200 
+                           hover:bg-white/10 hover:border-white/20 
+                           transition-all"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} 
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span className="hidden sm:inline font-medium">Search</span>
+                <kbd className="hidden sm:inline px-1.5 py-0.5 bg-white/10 rounded text-[9px] font-mono">
+                  ⌘K
+                </kbd>
+              </motion.button>
             </div>
 
             {/* Center: Now Playing */}
@@ -535,8 +530,9 @@ export default function RoomPage() {
                 onNextTrack={handleNextTrack}
               />
 
-              {/* Whisper Input */}
-              <div className="flex justify-center">
+              {/* Bottom: Voice Chat + Whisper */}
+              <div className="flex items-center justify-center gap-4">
+                <VoiceChat roomId={roomId} userCount={userCount} />
                 <WhisperInput onSendMessage={handleSendMessage} />
               </div>
             </div>
