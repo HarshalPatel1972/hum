@@ -49,6 +49,7 @@ export default function RoomPage() {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.8);
   const [isReady, setIsReady] = useState(false);
+  const [controlMode, setControlMode] = useState<'personal' | 'room'>('personal'); // Default: personal
   
   // Track history for prev/next
   const [trackHistory, setTrackHistory] = useState<SearchResult[]>([]);
@@ -229,21 +230,27 @@ export default function RoomPage() {
     if (isRemoteUpdate.current) return;
     const time = playerRef.current?.getCurrentTime() || currentTime;
     setIsPlaying(true);
-    emitStateUpdate(true, time);
+    if (controlMode === 'room') {
+      emitStateUpdate(true, time);
+    }
   };
 
   const handlePause = () => {
     if (isRemoteUpdate.current) return;
     const time = playerRef.current?.getCurrentTime() || currentTime;
     setIsPlaying(false);
-    emitStateUpdate(false, time);
+    if (controlMode === 'room') {
+      emitStateUpdate(false, time);
+    }
   };
 
   const handlePlayPause = () => {
     const time = playerRef.current?.getCurrentTime() || currentTime;
     const newPlaying = !isPlaying;
     setIsPlaying(newPlaying);
-    emitStateUpdate(newPlaying, time);
+    if (controlMode === 'room') {
+      emitStateUpdate(newPlaying, time);
+    }
   };
 
   const handleSeek = (seconds: number) => {
@@ -466,6 +473,34 @@ export default function RoomPage() {
 
             {/* Bottom: Controls + Chat */}
             <div className="pb-10 space-y-8">
+              {/* Control Mode Toggle */}
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setControlMode(controlMode === 'personal' ? 'room' : 'personal')}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/5 backdrop-blur-sm
+                             border border-white/10 rounded-full text-xs text-zinc-400
+                             hover:bg-white/10 hover:border-white/20 transition-all"
+                >
+                  {controlMode === 'personal' ? (
+                    <>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      <span>Personal Control</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      <span className="text-green-400">Room Control</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
               <ControlBar
                 isPlaying={isPlaying}
                 currentTime={currentTime}
