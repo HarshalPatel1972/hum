@@ -140,9 +140,10 @@ export default function RoomPage() {
       if (state.channel) setVideoChannel(state.channel);
 
       // On initial load, start paused so user can "continue"
+      // BUT don't broadcast this pause state
       let shouldPlay = state.isPlaying;
       if (isInitialLoad.current) {
-        console.log('[Sync] Initial load - starting paused');
+        console.log('[Sync] Initial load - starting paused (local only)');
         shouldPlay = false;
         isInitialLoad.current = false;
       }
@@ -157,20 +158,21 @@ export default function RoomPage() {
 
       const targetTime = state.currentSeconds || 0;
       
-      // If player is ready, seek immediately
+      // If player is ready, seek immediately with tighter threshold
       if (playerRef.current && isReady) {
         const currentPlayerTime = playerRef.current.getCurrentTime();
         const timeDiff = Math.abs(currentPlayerTime - targetTime);
 
-        if (timeDiff > 1.0) { // Increased threshold to 1s to be less aggressive
-          console.log('[Sync] Seeking to:', targetTime);
-          syncCooldown.current = true; // Set cooldown
+        // Tighter sync: 0.5s instead of 1s
+        if (timeDiff > 0.5) {
+          console.log('[Sync] Seeking to:', targetTime, 'diff:', timeDiff);
+          syncCooldown.current = true;
           playerRef.current.seekTo(targetTime);
           
-          // Reset cooldown after 2 seconds
+          // Reset cooldown after 1.5s (reduced from 2s)
           setTimeout(() => {
             syncCooldown.current = false;
-          }, 2000);
+          }, 1500);
         }
       } else {
         // Player not ready yet - store pending sync
@@ -180,7 +182,7 @@ export default function RoomPage() {
 
       setTimeout(() => {
         isRemoteUpdate.current = false;
-      }, 500); // Increased buffer time
+      }, 400);
     });
 
     socket.on('user_count_update', (data: { count: number }) => {
@@ -209,6 +211,19 @@ export default function RoomPage() {
       disconnectSocket();
     };
   }, [roomId, isReady, videoId]);
+
+  // Periodic sync check - keep everyone in perfect sync
+  useEffect(() => {
+    if (!isConnected || !videoId || controlMode !== 'room') return;
+
+    const syncInterval = setInterval(() => {
+      const socket = getSocket();
+      // Request current state from server
+      socket.emit('request_sync', { roomId });
+    }, 5000); // Check every 5 seconds
+
+    return () => clearInterval(syncInterval);
+  }, [isConnected, videoId, roomId, controlMode]);
 
   const emitStateUpdate = useCallback((playing: boolean, timestamp: number) => {
     const now = Date.now();
