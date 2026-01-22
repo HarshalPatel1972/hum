@@ -1,7 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 
 // Use environment variable for production, fallback to localhost
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://hum-sync-server.onrender.com';
 
 export interface RoomState {
   videoId: string;
