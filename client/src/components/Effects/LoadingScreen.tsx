@@ -14,20 +14,16 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
   const [fadeOut, setFadeOut] = useState(false);
 
   useEffect(() => {
-    // Word 1: हम at 500ms
-    const t1 = setTimeout(() => setShowWord1(true), 500);
+    // Equal 600ms delay between each word
+    const t1 = setTimeout(() => setShowWord1(true), 600);   // हम at 600ms
+    const t2 = setTimeout(() => setShowWord2(true), 1200);  // तुम at 1200ms
+    const t3 = setTimeout(() => setShowWord3(true), 1800);  // धुन at 1800ms
     
-    // Word 2: तुम at 1100ms
-    const t2 = setTimeout(() => setShowWord2(true), 1100);
+    // Fade out at 2600ms
+    const t4 = setTimeout(() => setFadeOut(true), 2600);
     
-    // Word 3: धुन at 1700ms
-    const t3 = setTimeout(() => setShowWord3(true), 1700);
-    
-    // Fade out at 2500ms
-    const t4 = setTimeout(() => setFadeOut(true), 2500);
-    
-    // Complete at 3300ms
-    const t5 = setTimeout(() => onComplete(), 3300);
+    // Complete at 3400ms
+    const t5 = setTimeout(() => onComplete(), 3400);
 
     return () => {
       clearTimeout(t1);
