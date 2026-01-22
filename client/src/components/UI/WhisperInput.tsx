@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { getSessionUsername } from '@/lib/username-generator';
 
 interface WhisperInputProps {
   onSendMessage: (message: string) => void;
@@ -9,7 +10,12 @@ interface WhisperInputProps {
 export default function WhisperInput({ onSendMessage }: WhisperInputProps) {
   const [message, setMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [username, setUsername] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setUsername(getSessionUsername());
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

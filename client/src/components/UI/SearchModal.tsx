@@ -66,6 +66,15 @@ export default function SearchModal({ isOpen, onClose, onSelectVideo }: SearchMo
     onClose();
   };
 
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setQuery('');
+      setResults([]);
+      setIsLoading(false);
+    }
+  }, [isOpen]);
+
   // Keyboard shortcut to escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

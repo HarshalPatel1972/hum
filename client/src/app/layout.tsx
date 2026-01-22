@@ -15,8 +15,8 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: 'HUM - Synchronized Listening',
-  description: 'Listen together, in perfect sync.',
+  title: 'HUM ~ TUM ~ DHUN',
+  description: 'Listen together, vibe together. Perfect sync, every time.',
 };
 
 export default function RootLayout({
