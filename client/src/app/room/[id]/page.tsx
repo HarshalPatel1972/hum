@@ -10,9 +10,11 @@ import LoadingScreen from '@/components/Effects/LoadingScreen';
 import NowPlaying from '@/components/UI/NowPlaying';
 import ControlBar from '@/components/UI/ControlBar';
 import SearchModal from '@/components/UI/SearchModal';
+import PresenceBar from '@/components/UI/PresenceBar';
 import WhisperInput from '@/components/UI/WhisperInput';
 import WhisperToast from '@/components/UI/WhisperToast';
 import VideoLayer, { VideoLayerRef } from '@/components/Player/VideoLayer';
+import VoiceChat from '@/components/Voice/VoiceChat';
 import { getSocket, RoomState, disconnectSocket } from '@/lib/socket';
 import { OnProgressProps } from 'react-player/base';
 // Removed idle hook - no longer fading on idle
@@ -455,27 +457,31 @@ export default function RoomPage() {
                 </span>
               </div>
 
-              {/* Right: Search Button */}
-              <motion.button
-                onClick={openSearch}
-                className="flex items-center gap-2 px-4 py-2 
-                           bg-white/5 backdrop-blur-sm
-                           border border-white/10 rounded-full
-                           text-xs text-zinc-400 hover:text-zinc-200 
-                           hover:bg-white/10 hover:border-white/20 
-                           transition-all"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} 
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <span className="hidden sm:inline font-medium">Search</span>
-                <kbd className="hidden sm:inline px-1.5 py-0.5 bg-white/10 rounded text-[9px] font-mono">
-                  ⌘K
-                </kbd>
-              </motion.button>
+              {/* Right: Voice Chat + Search Button */}
+              <div className="flex items-center gap-3">
+                <VoiceChat roomId={roomId} userCount={userCount} />
+                
+                <motion.button
+                  onClick={openSearch}
+                  className="flex items-center gap-2 px-4 py-2 
+                             bg-white/5 backdrop-blur-sm
+                             border border-white/10 rounded-full
+                             text-xs text-zinc-400 hover:text-zinc-200 
+                             hover:bg-white/10 hover:border-white/20 
+                             transition-all"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} 
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <span className="hidden sm:inline font-medium">Search</span>
+                  <kbd className="hidden sm:inline px-1.5 py-0.5 bg-white/10 rounded text-[9px] font-mono">
+                    ⌘K
+                  </kbd>
+                </motion.button>
+              </div>
             </div>
 
             {/* Center: Now Playing */}

@@ -184,6 +184,38 @@ io.on('connection', (socket: Socket) => {
     });
   });
 
+  // WebRTC Signaling for Voice Chat
+  socket.on('voice:offer', (data: { roomId: string; offer: RTCSessionDescriptionInit; targetId: string }) => {
+    console.log(`[Voice] Offer from ${socket.id} to ${data.targetId}`);
+    io.to(data.targetId).emit('voice:offer', {
+      offer: data.offer,
+      senderId: socket.id
+    });
+  });
+
+  socket.on('voice:answer', (data: { roomId: string; answer: RTCSessionDescriptionInit; targetId: string }) => {
+    console.log(`[Voice] Answer from ${socket.id} to ${data.targetId}`);
+    io.to(data.targetId).emit('voice:answer', {
+      answer: data.answer,
+      senderId: socket.id
+    });
+  });
+
+  socket.on('voice:ice-candidate', (data: { roomId: string; candidate: RTCIceCandidateInit; targetId: string }) => {
+    io.to(data.targetId).emit('voice:ice-candidate', {
+      candidate: data.candidate,
+      senderId: socket.id
+    });
+  });
+
+  socket.on('voice:toggle', (data: { roomId: string; enabled: boolean }) => {
+    console.log(`[Voice] ${socket.id} voice ${data.enabled ? 'enabled' : 'disabled'}`);
+    socket.to(data.roomId).emit('voice:user-toggle', {
+      userId: socket.id,
+      enabled: data.enabled
+    });
+  });
+
   socket.on('disconnect', () => {
     console.log(`[Socket] Client disconnected: ${socket.id}`);
     
