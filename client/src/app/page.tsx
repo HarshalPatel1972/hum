@@ -15,8 +15,22 @@ export default function Home() {
   };
 
   const generateRandomRoom = () => {
-    const randomId = Math.random().toString(36).substring(2, 8);
-    setRoomId(randomId);
+    const adjectives = [
+      'radiant', 'glowing', 'misty', 'serene', 'velvet', 'amber', 'crimson',
+      'golden', 'silver', 'azure', 'cosmic', 'lunar', 'solar', 'stellar',
+      'gentle', 'silent', 'dreamy', 'mystic', 'crystal', 'midnight', 'twilight',
+      'autumn', 'winter', 'spring', 'summer', 'eternal', 'floating', 'drifting'
+    ];
+    const nouns = [
+      'horizon', 'meadow', 'river', 'mountain', 'forest', 'ocean', 'sunset',
+      'sunrise', 'aurora', 'cascade', 'whisper', 'echo', 'harmony', 'melody',
+      'breeze', 'storm', 'cloud', 'rain', 'snow', 'flame', 'spark', 'star',
+      'moon', 'garden', 'temple', 'haven', 'voyage', 'journey', 'dream'
+    ];
+    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    const suffix = Math.floor(Math.random() * 100);
+    setRoomId(`${adj}-${noun}-${suffix}`);
   };
 
   return (
@@ -70,7 +84,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="mt-16 text-zinc-600 text-sm">
-        Phase 1: The Sync Engine
+        हम। तुम। धुन।
       </footer>
     </main>
   );

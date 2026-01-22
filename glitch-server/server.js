@@ -7,7 +7,7 @@ const cors = require('cors');
 const rooms = new Map();
 const roomUsers = new Map();
 
-const DEFAULT_VIDEO_ID = 'dQw4w9WgXcQ';
+const DEFAULT_VIDEO_ID = ''; // No default music - room starts empty
 
 // Production CORS - add your Vercel URL here
 const ALLOWED_ORIGINS = [

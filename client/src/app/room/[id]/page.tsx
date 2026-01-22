@@ -16,7 +16,7 @@ import WhisperInput from '@/components/UI/WhisperInput';
 import WhisperToast from '@/components/UI/WhisperToast';
 import { getSocket, RoomState, disconnectSocket } from '@/lib/socket';
 import { OnProgressProps } from 'react-player/base';
-import { useIdle } from '@/hooks/useIdle';
+// Removed idle hook - no longer fading on idle
 
 // Dynamic import to avoid SSR issues
 const VideoLayer = dynamic(() => import('@/components/Player/VideoLayer'), {
@@ -50,9 +50,9 @@ export default function RoomPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Player state
-  const [videoId, setVideoId] = useState('dQw4w9WgXcQ');
-  const [videoTitle, setVideoTitle] = useState('Never Gonna Give You Up');
-  const [videoChannel, setVideoChannel] = useState('Rick Astley');
+  const [videoId, setVideoId] = useState('');
+  const [videoTitle, setVideoTitle] = useState('No track selected');
+  const [videoChannel, setVideoChannel] = useState('Search to add music');
   const [videoThumbnail, setVideoThumbnail] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -68,8 +68,7 @@ export default function RoomPage() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   
-  // Idle state for fade
-  const isIdle = useIdle(4000);
+  // Removed idle fade feature
   
   // Refs
   const playerRef = useRef<VideoLayerRef>(null);
@@ -274,10 +273,8 @@ export default function RoomPage() {
           <WhisperToast messages={messages} onMessageExpire={handleMessageExpire} />
 
           {/* Content Overlay with Fade-on-Idle */}
-          <motion.div
+          <div
             className="relative z-30 min-h-screen flex flex-col"
-            animate={{ opacity: isIdle ? 0 : 1 }}
-            transition={{ duration: 0.8, ease: 'easeInOut' }}
           >
             {/* Top Bar */}
             <div className="flex items-center justify-between px-6 py-5">
@@ -343,21 +340,7 @@ export default function RoomPage() {
                 <WhisperInput onSendMessage={handleSendMessage} />
               </div>
             </div>
-          </motion.div>
-
-          {/* Idle indicator */}
-          {isIdle && (
-            <motion.div
-              className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-            >
-              <p className="text-zinc-700/50 text-xs tracking-[0.3em] uppercase">
-                Move to reveal
-              </p>
-            </motion.div>
-          )}
+          </div>
         </div>
       </DynamicBackground>
 
