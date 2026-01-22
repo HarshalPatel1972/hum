@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 interface ControlBarProps {
@@ -17,141 +17,78 @@ export default function ControlBar({
   isPlaying,
   currentTime,
   duration,
-  volume,
   onPlayPause,
   onSeek,
-  onVolumeChange,
 }: ControlBarProps) {
-  const [isHoveringProgress, setIsHoveringProgress] = useState(false);
+  const [localTime, setLocalTime] = useState(currentTime);
   const [isSeeking, setIsSeeking] = useState(false);
-  const [seekTime, setSeekTime] = useState(currentTime);
-  const progressRef = useRef<HTMLDivElement>(null);
 
-  // Update seek time from props when not seeking
+  // Sync local time with prop when not seeking
   useEffect(() => {
     if (!isSeeking) {
-      setSeekTime(currentTime);
+      setLocalTime(currentTime);
     }
   }, [currentTime, isSeeking]);
 
   const formatTime = (seconds: number): string => {
+    if (!seconds || isNaN(seconds)) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progress = duration > 0 ? (seekTime / duration) * 100 : 0;
-
-  // Calculate time from position
-  const getTimeFromPosition = (clientX: number): number => {
-    if (!progressRef.current || duration === 0) return 0;
-    const rect = progressRef.current.getBoundingClientRect();
-    const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    return percent * duration;
-  };
-
-  // Mouse events
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = parseFloat(e.target.value);
+    setLocalTime(newTime);
     setIsSeeking(true);
-    const time = getTimeFromPosition(e.clientX);
-    setSeekTime(time);
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isSeeking) return;
-    const time = getTimeFromPosition(e.clientX);
-    setSeekTime(time);
+  const handleSeekCommit = () => {
+    onSeek(localTime);
+    setIsSeeking(false);
   };
 
-  const handleMouseUp = () => {
-    if (isSeeking) {
-      onSeek(seekTime);
-      setIsSeeking(false);
-    }
-  };
-
-  // Touch events for mobile
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setIsSeeking(true);
-    const touch = e.touches[0];
-    const time = getTimeFromPosition(touch.clientX);
-    setSeekTime(time);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isSeeking) return;
-    const touch = e.touches[0];
-    const time = getTimeFromPosition(touch.clientX);
-    setSeekTime(time);
-  };
-
-  const handleTouchEnd = () => {
-    if (isSeeking) {
-      onSeek(seekTime);
-      setIsSeeking(false);
-    }
-  };
-
-  // Click to seek
-  const handleClick = (e: React.MouseEvent) => {
-    const time = getTimeFromPosition(e.clientX);
-    setSeekTime(time);
-    onSeek(time);
-  };
+  const progress = duration > 0 ? (localTime / duration) * 100 : 0;
 
   return (
-    <div 
-      className="w-full max-w-2xl mx-auto px-8"
-      onMouseUp={handleMouseUp}
-      onMouseLeave={() => {
-        if (isSeeking) {
-          onSeek(seekTime);
-          setIsSeeking(false);
-        }
-      }}
-    >
+    <div className="w-full max-w-2xl mx-auto px-8">
       {/* Progress Bar */}
-      <div 
-        ref={progressRef}
-        className="relative w-full mb-8 cursor-pointer group touch-none"
-        onMouseEnter={() => setIsHoveringProgress(true)}
-        onMouseLeave={() => setIsHoveringProgress(false)}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onClick={handleClick}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
+      <div className="relative w-full mb-8">
         {/* Time labels */}
         <div className="flex justify-between mb-3 text-xs text-zinc-500 font-mono tracking-wider">
-          <span>{formatTime(seekTime)}</span>
+          <span>{formatTime(localTime)}</span>
           <span>{formatTime(duration)}</span>
         </div>
 
-        {/* Track */}
-        <div 
-          className="relative w-full h-6 flex items-center"
-        >
+        {/* Seek slider container */}
+        <div className="relative h-6 flex items-center">
           {/* Background track */}
           <div className="absolute left-0 right-0 h-1.5 bg-zinc-800 rounded-full" />
           
           {/* Progress fill */}
           <div 
-            className="absolute left-0 h-1.5 rounded-full bg-gradient-to-r from-zinc-500 to-white"
+            className="absolute left-0 h-1.5 rounded-full bg-gradient-to-r from-zinc-500 to-white pointer-events-none"
             style={{ width: `${progress}%` }}
           />
           
-          {/* Knob */}
-          <motion.div 
-            className="absolute w-4 h-4 bg-white rounded-full shadow-lg"
+          {/* Native range input - most reliable for touch/click */}
+          <input
+            type="range"
+            min={0}
+            max={duration || 100}
+            step={0.1}
+            value={localTime}
+            onChange={handleSeekChange}
+            onMouseUp={handleSeekCommit}
+            onTouchEnd={handleSeekCommit}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+            style={{ WebkitAppearance: 'none' }}
+          />
+          
+          {/* Visible thumb */}
+          <div 
+            className="absolute w-4 h-4 bg-white rounded-full shadow-lg pointer-events-none"
             style={{ left: `calc(${progress}% - 8px)` }}
-            animate={{ 
-              scale: isHoveringProgress || isSeeking ? 1 : 0.7,
-              opacity: isHoveringProgress || isSeeking ? 1 : 0.5
-            }}
-            transition={{ duration: 0.15 }}
           />
         </div>
       </div>
