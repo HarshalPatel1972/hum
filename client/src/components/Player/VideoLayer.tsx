@@ -24,6 +24,7 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
   ({ videoId, isPlaying, volume, onPlay, onPause, onProgress, onReady, onDuration }, ref) => {
     const playerRef = useRef<ReactPlayer>(null);
 
+    // IMPORTANT: useImperativeHandle must be called BEFORE any early returns!
     useImperativeHandle(ref, () => ({
       seekTo: (seconds: number) => {
         console.log('[VideoLayer.seekTo] Called with:', seconds, 'playerRef:', !!playerRef.current);
@@ -35,9 +36,9 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
       getCurrentTime: () => {
         return playerRef.current?.getCurrentTime() || 0;
       },
-    }));
+    }), []);
 
-    // Don't render if no video
+    // Don't render player if no video - but ref is still available!
     if (!videoId) {
       return (
         <div className="absolute inset-0 bg-gradient-to-b from-zinc-900 to-[#09090b]" />
