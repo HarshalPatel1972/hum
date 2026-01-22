@@ -282,11 +282,11 @@ export default function RoomPage() {
               <PresenceBar userCount={userCount} isConnected={isConnected} />
 
               {/* Center: Room ID + Slogan */}
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center gap-1">
                 <span className="text-[10px] tracking-[0.4em] uppercase text-zinc-600 font-medium">
                   {roomId}
                 </span>
-                <span className="text-[10px] tracking-wider text-zinc-700 mt-1">
+                <span className="text-[10px] tracking-wider text-zinc-700 mt-2">
                   हम। तुम। धुन।
                 </span>
               </div>

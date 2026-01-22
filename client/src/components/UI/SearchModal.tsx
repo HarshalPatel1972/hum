@@ -103,8 +103,8 @@ export default function SearchModal({ isOpen, onClose, onSelectVideo }: SearchMo
       
       {/* Modal */}
       <div 
-        className="relative w-full max-w-xl mx-4 bg-zinc-900/90 backdrop-blur-xl 
-                   border border-zinc-800/50 rounded-2xl shadow-2xl overflow-hidden"
+        className="relative w-full max-w-xl mx-4 bg-zinc-900/95 backdrop-blur-xl 
+                   border border-zinc-700/50 rounded-2xl shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <Command 

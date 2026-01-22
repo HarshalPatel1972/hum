@@ -53,7 +53,7 @@ export default function NowPlaying({ title, artist, isPlaying }: NowPlayingProps
       <AnimatePresence mode="wait">
         <motion.h1
           key={title}
-          className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-4 leading-[1.1]"
+          className="text-2xl md:text-4xl lg:text-5xl font-bold tracking-tight text-white mb-4 leading-[1.1]"
           initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
           animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           exit={{ opacity: 0, y: -30, filter: 'blur(10px)' }}

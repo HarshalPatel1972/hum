@@ -194,15 +194,30 @@ export default function ControlBar({
         >
           <path d="M11.5 5L7 9H3v6h4l4.5 4V5z" />
         </motion.svg>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          value={volume}
-          onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-          className="w-24 accent-white"
-        />
+        <div className="relative w-24 h-4 flex items-center">
+          {/* Track background */}
+          <div className="absolute inset-y-0 left-0 right-0 m-auto h-1 bg-zinc-700 rounded-full" />
+          {/* Filled track */}
+          <div 
+            className="absolute inset-y-0 left-0 m-auto h-1 bg-zinc-400 rounded-full" 
+            style={{ width: `${volume * 100}%` }}
+          />
+          {/* Actual slider input */}
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={volume}
+            onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
+            className="absolute inset-0 w-full opacity-0 cursor-pointer"
+          />
+          {/* Thumb indicator */}
+          <div 
+            className="absolute w-3 h-3 bg-white rounded-full shadow-md pointer-events-none"
+            style={{ left: `calc(${volume * 100}% - 6px)`, top: '50%', transform: 'translateY(-50%)' }}
+          />
+        </div>
         <motion.svg 
           className="w-4 h-4 text-zinc-600" 
           fill="none" 
