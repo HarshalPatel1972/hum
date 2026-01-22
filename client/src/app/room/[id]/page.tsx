@@ -86,13 +86,38 @@ export default function RoomPage() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setIsSearchOpen(true);
+        openSearch();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Handle browser back button for search modal
+  useEffect(() => {
+    const handlePopState = () => {
+      if (isSearchOpen) {
+        setIsSearchOpen(false);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isSearchOpen]);
+
+  // Open search with history state
+  const openSearch = () => {
+    window.history.pushState({ search: true }, '');
+    setIsSearchOpen(true);
+  };
+
+  // Close search - go back in history if we pushed state
+  const closeSearch = () => {
+    if (isSearchOpen) {
+      window.history.back();
+    }
+  };
 
   // Socket connection and events
   useEffect(() => {
@@ -262,6 +287,7 @@ export default function RoomPage() {
             ref={playerRef}
             videoId={videoId}
             isPlaying={isPlaying}
+            volume={volume}
             onPlay={handlePlay}
             onPause={handlePause}
             onProgress={handleProgress}
@@ -311,7 +337,7 @@ export default function RoomPage() {
 
               {/* Right: Search Button */}
               <motion.button
-                onClick={() => setIsSearchOpen(true)}
+                onClick={openSearch}
                 className="flex items-center gap-2 px-4 py-2 
                            bg-white/5 backdrop-blur-sm
                            border border-white/10 rounded-full
@@ -365,7 +391,7 @@ export default function RoomPage() {
       {/* Search Modal */}
       <SearchModal
         isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
+        onClose={closeSearch}
         onSelectVideo={handleSelectVideo}
       />
     </>

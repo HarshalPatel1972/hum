@@ -23,16 +23,16 @@ export default function ControlBar({
   onVolumeChange,
 }: ControlBarProps) {
   const [isHoveringProgress, setIsHoveringProgress] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [localTime, setLocalTime] = useState(currentTime);
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [seekTime, setSeekTime] = useState(currentTime);
   const progressRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Update seek time from props when not seeking
   useEffect(() => {
-    if (!isDragging) {
-      setLocalTime(currentTime);
+    if (!isSeeking) {
+      setSeekTime(currentTime);
     }
-  }, [currentTime, isDragging]);
+  }, [currentTime, isSeeking]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -40,89 +40,120 @@ export default function ControlBar({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progress = duration > 0 ? (localTime / duration) * 100 : 0;
+  const progress = duration > 0 ? (seekTime / duration) * 100 : 0;
 
-  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!progressRef.current || duration === 0) return;
-    
+  // Calculate time from position
+  const getTimeFromPosition = (clientX: number): number => {
+    if (!progressRef.current || duration === 0) return 0;
     const rect = progressRef.current.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-    const newTime = percent * duration;
-    
-    setLocalTime(newTime);
-    
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      onSeek(newTime);
-    }, 100);
+    const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return percent * duration;
   };
 
-  const handleProgressDrag = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isDragging || !progressRef.current || duration === 0) return;
-    
-    const rect = progressRef.current.getBoundingClientRect();
-    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const newTime = percent * duration;
-    
-    setLocalTime(newTime);
+  // Mouse events
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsSeeking(true);
+    const time = getTimeFromPosition(e.clientX);
+    setSeekTime(time);
   };
 
-  const handleDragEnd = () => {
-    if (isDragging) {
-      setIsDragging(false);
-      onSeek(localTime);
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isSeeking) return;
+    const time = getTimeFromPosition(e.clientX);
+    setSeekTime(time);
+  };
+
+  const handleMouseUp = () => {
+    if (isSeeking) {
+      onSeek(seekTime);
+      setIsSeeking(false);
     }
   };
 
+  // Touch events for mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setIsSeeking(true);
+    const touch = e.touches[0];
+    const time = getTimeFromPosition(touch.clientX);
+    setSeekTime(time);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isSeeking) return;
+    const touch = e.touches[0];
+    const time = getTimeFromPosition(touch.clientX);
+    setSeekTime(time);
+  };
+
+  const handleTouchEnd = () => {
+    if (isSeeking) {
+      onSeek(seekTime);
+      setIsSeeking(false);
+    }
+  };
+
+  // Click to seek
+  const handleClick = (e: React.MouseEvent) => {
+    const time = getTimeFromPosition(e.clientX);
+    setSeekTime(time);
+    onSeek(time);
+  };
+
   return (
-    <div className="w-full max-w-2xl mx-auto px-8">
+    <div 
+      className="w-full max-w-2xl mx-auto px-8"
+      onMouseUp={handleMouseUp}
+      onMouseLeave={() => {
+        if (isSeeking) {
+          onSeek(seekTime);
+          setIsSeeking(false);
+        }
+      }}
+    >
       {/* Progress Bar */}
       <div 
         ref={progressRef}
-        className="relative w-full mb-8 cursor-pointer group"
+        className="relative w-full mb-8 cursor-pointer group touch-none"
         onMouseEnter={() => setIsHoveringProgress(true)}
-        onMouseLeave={() => {
-          setIsHoveringProgress(false);
-          handleDragEnd();
-        }}
-        onMouseDown={() => setIsDragging(true)}
-        onMouseUp={handleDragEnd}
-        onMouseMove={handleProgressDrag}
-        onClick={handleProgressClick}
+        onMouseLeave={() => setIsHoveringProgress(false)}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onClick={handleClick}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {/* Time labels */}
         <div className="flex justify-between mb-3 text-xs text-zinc-500 font-mono tracking-wider">
-          <span>{formatTime(localTime)}</span>
+          <span>{formatTime(seekTime)}</span>
           <span>{formatTime(duration)}</span>
         </div>
 
         {/* Track */}
-        <motion.div 
-          className="w-full bg-zinc-800/50 rounded-full overflow-hidden backdrop-blur-sm"
-          animate={{ height: isHoveringProgress ? 8 : 3 }}
-          transition={{ duration: 0.2 }}
+        <div 
+          className="relative w-full h-6 flex items-center"
         >
+          {/* Background track */}
+          <div className="absolute left-0 right-0 h-1.5 bg-zinc-800 rounded-full" />
+          
           {/* Progress fill */}
+          <div 
+            className="absolute left-0 h-1.5 rounded-full bg-gradient-to-r from-zinc-500 to-white"
+            style={{ width: `${progress}%` }}
+          />
+          
+          {/* Knob */}
           <motion.div 
-            className="h-full rounded-full relative"
-            style={{ 
-              width: `${progress}%`,
-              background: 'linear-gradient(90deg, rgba(161, 161, 170, 0.6) 0%, rgba(250, 250, 250, 0.9) 100%)'
+            className="absolute w-4 h-4 bg-white rounded-full shadow-lg"
+            style={{ left: `calc(${progress}% - 8px)` }}
+            animate={{ 
+              scale: isHoveringProgress || isSeeking ? 1 : 0.7,
+              opacity: isHoveringProgress || isSeeking ? 1 : 0.5
             }}
-          >
-            {/* Knob */}
-            <motion.div 
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 
-                          w-4 h-4 bg-white rounded-full shadow-lg shadow-white/20"
-              initial={{ opacity: 0, scale: 0 }}
-              animate={{ 
-                opacity: isHoveringProgress ? 1 : 0,
-                scale: isHoveringProgress ? 1 : 0,
-              }}
-              transition={{ duration: 0.15 }}
-            />
-          </motion.div>
-        </motion.div>
+            transition={{ duration: 0.15 }}
+          />
+        </div>
       </div>
 
       {/* Controls Row */}
@@ -153,21 +184,16 @@ export default function ControlBar({
           whileHover={{ scale: 1.08, boxShadow: '0 0 30px rgba(255,255,255,0.15)' }}
           whileTap={{ scale: 0.95 }}
         >
-          <motion.div
-            animate={{ rotate: isPlaying ? 0 : 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            {isPlaying ? (
-              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <rect x="6" y="4" width="4" height="16" rx="1" />
-                <rect x="14" y="4" width="4" height="16" rx="1" />
-              </svg>
-            ) : (
-              <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            )}
-          </motion.div>
+          {isPlaying ? (
+            <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <rect x="6" y="4" width="4" height="16" rx="1" />
+              <rect x="14" y="4" width="4" height="16" rx="1" />
+            </svg>
+          ) : (
+            <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          )}
         </motion.button>
 
         {/* Skip Forward */}
@@ -186,20 +212,15 @@ export default function ControlBar({
 
       {/* Volume Control */}
       <div className="flex items-center justify-center gap-3 mt-8">
-        <motion.svg 
-          className="w-4 h-4 text-zinc-600" 
-          fill="currentColor" 
-          viewBox="0 0 24 24"
-          whileHover={{ scale: 1.1 }}
-        >
+        <svg className="w-4 h-4 text-zinc-600" fill="currentColor" viewBox="0 0 24 24">
           <path d="M11.5 5L7 9H3v6h4l4.5 4V5z" />
-        </motion.svg>
-        <div className="relative w-24 h-4 flex items-center">
+        </svg>
+        <div className="relative w-24 h-6 flex items-center">
           {/* Track background */}
-          <div className="absolute inset-y-0 left-0 right-0 m-auto h-1 bg-zinc-700 rounded-full" />
+          <div className="absolute left-0 right-0 h-1 bg-zinc-700 rounded-full" />
           {/* Filled track */}
           <div 
-            className="absolute inset-y-0 left-0 m-auto h-1 bg-zinc-400 rounded-full" 
+            className="absolute left-0 h-1 bg-zinc-400 rounded-full" 
             style={{ width: `${volume * 100}%` }}
           />
           {/* Actual slider input */}
@@ -215,20 +236,13 @@ export default function ControlBar({
           {/* Thumb indicator */}
           <div 
             className="absolute w-3 h-3 bg-white rounded-full shadow-md pointer-events-none"
-            style={{ left: `calc(${volume * 100}% - 6px)`, top: '50%', transform: 'translateY(-50%)' }}
+            style={{ left: `calc(${volume * 100}% - 6px)` }}
           />
         </div>
-        <motion.svg 
-          className="w-4 h-4 text-zinc-600" 
-          fill="none" 
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          whileHover={{ scale: 1.1 }}
-        >
+        <svg className="w-4 h-4 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M11.5 5L7 9H3v6h4l4.5 4V5z" />
           <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 8.5a4 4 0 010 7M18 6a7 7 0 010 12" />
-        </motion.svg>
+        </svg>
       </div>
     </div>
   );

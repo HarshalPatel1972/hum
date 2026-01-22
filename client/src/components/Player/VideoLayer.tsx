@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useRef, useImperativeHandle, forwardRef } from 'react';
 import ReactPlayer from 'react-player/youtube';
 import { OnProgressProps } from 'react-player/base';
 
@@ -12,6 +12,7 @@ export interface VideoLayerRef {
 interface VideoLayerProps {
   videoId: string;
   isPlaying: boolean;
+  volume: number;
   onPlay: () => void;
   onPause: () => void;
   onProgress: (state: OnProgressProps) => void;
@@ -20,7 +21,7 @@ interface VideoLayerProps {
 }
 
 const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
-  ({ videoId, isPlaying, onPlay, onPause, onProgress, onReady, onDuration }, ref) => {
+  ({ videoId, isPlaying, volume, onPlay, onPause, onProgress, onReady, onDuration }, ref) => {
     const playerRef = useRef<ReactPlayer>(null);
 
     useImperativeHandle(ref, () => ({
@@ -31,6 +32,13 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
         return playerRef.current?.getCurrentTime() || 0;
       },
     }));
+
+    // Don't render if no video
+    if (!videoId) {
+      return (
+        <div className="absolute inset-0 bg-gradient-to-b from-zinc-900 to-[#09090b]" />
+      );
+    }
 
     const url = `https://www.youtube.com/watch?v=${videoId}`;
 
@@ -51,7 +59,7 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
             onReady={onReady}
             onDuration={onDuration}
             progressInterval={100}
-            volume={1}
+            volume={volume}
             muted={false}
             config={{
               playerVars: {
