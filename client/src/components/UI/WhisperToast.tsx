@@ -50,7 +50,7 @@ export default function WhisperToast({ messages, onMessageExpire }: WhisperToast
   }, [currentMessage, queue, onMessageExpire]);
 
   return (
-    <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
+    <div className="fixed top-[45vh] left-1/2 -translate-x-1/2 z-40 pointer-events-none">
       <AnimatePresence>
         {currentMessage && (
           <motion.div

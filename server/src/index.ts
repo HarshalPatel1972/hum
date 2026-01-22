@@ -170,16 +170,16 @@ io.on('connection', (socket: Socket) => {
     });
   });
 
-  socket.on('send_message', (data: { roomId: string; message: string }) => {
-    const { roomId, message } = data;
+  socket.on('send_message', (data: { roomId: string; message: string; username: string }) => {
+    const { roomId, message, username } = data;
     
     if (!message.trim()) return;
     
-    console.log(`[Chat] Room ${roomId}: "${message.substring(0, 50)}..."`);
+    console.log(`[Chat] Room ${roomId}: "${username}" - "${message.substring(0, 50)}..."`);
     
     socket.to(roomId).emit('receive_message', {
       message: message.trim(),
-      senderId: socket.id.substring(0, 6),
+      senderId: username,
       timestamp: Date.now()
     });
   });

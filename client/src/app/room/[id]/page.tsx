@@ -14,8 +14,8 @@ import PresenceBar from '@/components/UI/PresenceBar';
 import WhisperInput from '@/components/UI/WhisperInput';
 import WhisperToast from '@/components/UI/WhisperToast';
 import VideoLayer, { VideoLayerRef } from '@/components/Player/VideoLayer';
-import VoiceChat from '@/components/Voice/VoiceChat';
 import { getSocket, RoomState, disconnectSocket } from '@/lib/socket';
+import { getSessionUsername } from '@/lib/username-generator';
 import { OnProgressProps } from 'react-player/base';
 // Removed idle hook - no longer fading on idle
 
@@ -73,6 +73,7 @@ export default function RoomPage() {
   const lastEmitTime = useRef(0);
   const pendingSync = useRef<{ time: number; playing: boolean } | null>(null);
   const syncCooldown = useRef(false);
+  const isSeekingFromSync = useRef(false); // Prevent seek broadcast loops
   const isInitialLoad = useRef(true);
 
   // Update thumbnail when video changes
@@ -169,7 +170,15 @@ export default function RoomPage() {
         if (timeDiff > 0.3) {
           console.log('[Sync] Seeking to:', targetTime, 'diff:', timeDiff);
           syncCooldown.current = true;
+          
+          // Set flag to prevent seek from broadcasting
+          isSeekingFromSync.current = true;
           playerRef.current.seekTo(targetTime);
+          
+          // Reset flag after a brief delay
+          setTimeout(() => {
+            isSeekingFromSync.current = false;
+          }, 500);
           
           // Shorter cooldown (1s) for more responsive sync
           setTimeout(() => {
@@ -271,12 +280,14 @@ export default function RoomPage() {
   };
 
   const handleSeek = (seconds: number) => {
-    console.log('[handleSeek] Called with:', seconds, 'playerRef:', !!playerRef.current);
+    console.log('[Seek] User seeking to:', seconds, 'fromSync:', isSeekingFromSync.current);
     if (playerRef.current) {
-      console.log('[handleSeek] Calling seekTo...');
       playerRef.current.seekTo(seconds);
       setCurrentTime(seconds);
-      emitStateUpdate(isPlaying, seconds);
+      // Only broadcast if this is a user-initiated seek, not from sync
+      if (!isSeekingFromSync.current && controlMode === 'room') {
+        emitStateUpdate(isPlaying, seconds);
+      }
     } else {
       console.log('[handleSeek] playerRef is null!');
     }
@@ -381,7 +392,17 @@ export default function RoomPage() {
 
   const handleSendMessage = (message: string) => {
     const socket = getSocket();
-    socket.emit('send_message', { roomId, message });
+    const username = getSessionUsername(); // Use creative username
+    socket.emit('send_message', { roomId, message, username });
+    
+    // Also show in own chat
+    const newMessage: ChatMessage = {
+      id: Date.now().toString(),
+      message,
+      senderId: username,
+      timestamp: Date.now(),
+    };
+    setMessages(prev => [...prev, newMessage]);
   };
 
   const handleMessageExpire = (id: string) => {
@@ -530,9 +551,8 @@ export default function RoomPage() {
                 onNextTrack={handleNextTrack}
               />
 
-              {/* Bottom: Voice Chat + Whisper */}
-              <div className="flex items-center justify-center gap-4">
-                <VoiceChat roomId={roomId} userCount={userCount} />
+              {/* Bottom: Whisper */}
+              <div className="flex items-center justify-center">
                 <WhisperInput onSendMessage={handleSendMessage} />
               </div>
             </div>
