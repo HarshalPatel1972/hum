@@ -20,15 +20,15 @@ export default function ControlBar({
   onPlayPause,
   onSeek,
 }: ControlBarProps) {
-  const [localTime, setLocalTime] = useState(currentTime);
-  const [isSeeking, setIsSeeking] = useState(false);
+  const [sliderValue, setSliderValue] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
-  // Sync local time with prop when not seeking
+  // Sync slider with actual time when not dragging
   useEffect(() => {
-    if (!isSeeking) {
-      setLocalTime(currentTime);
+    if (!isDragging && duration > 0) {
+      setSliderValue((currentTime / duration) * 100);
     }
-  }, [currentTime, isSeeking]);
+  }, [currentTime, duration, isDragging]);
 
   const formatTime = (seconds: number): string => {
     if (!seconds || isNaN(seconds)) return '0:00';
@@ -37,18 +37,22 @@ export default function ControlBar({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTime = parseFloat(e.target.value);
-    setLocalTime(newTime);
-    setIsSeeking(true);
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const percent = parseFloat(e.target.value);
+    setSliderValue(percent);
+    setIsDragging(true);
   };
 
-  const handleSeekCommit = () => {
-    onSeek(localTime);
-    setIsSeeking(false);
+  const handleSliderRelease = () => {
+    if (duration > 0) {
+      const newTime = (sliderValue / 100) * duration;
+      console.log('[Seek] Seeking to:', newTime);
+      onSeek(newTime);
+    }
+    setIsDragging(false);
   };
 
-  const progress = duration > 0 ? (localTime / duration) * 100 : 0;
+  const displayTime = isDragging ? (sliderValue / 100) * duration : currentTime;
 
   return (
     <div className="w-full max-w-2xl mx-auto px-8">
@@ -56,48 +60,52 @@ export default function ControlBar({
       <div className="relative w-full mb-8">
         {/* Time labels */}
         <div className="flex justify-between mb-3 text-xs text-zinc-500 font-mono tracking-wider">
-          <span>{formatTime(localTime)}</span>
+          <span>{formatTime(displayTime)}</span>
           <span>{formatTime(duration)}</span>
         </div>
 
-        {/* Seek slider container */}
-        <div className="relative h-6 flex items-center">
+        {/* Slider container */}
+        <div className="relative h-8 flex items-center">
           {/* Background track */}
-          <div className="absolute left-0 right-0 h-1.5 bg-zinc-800 rounded-full" />
+          <div className="absolute left-0 right-0 h-2 bg-zinc-800 rounded-full" />
           
           {/* Progress fill */}
           <div 
-            className="absolute left-0 h-1.5 rounded-full bg-gradient-to-r from-zinc-500 to-white pointer-events-none"
-            style={{ width: `${progress}%` }}
+            className="absolute left-0 h-2 rounded-full bg-white"
+            style={{ width: `${sliderValue}%` }}
           />
           
-          {/* Native range input - most reliable for touch/click */}
+          {/* Thumb */}
+          <div 
+            className="absolute w-5 h-5 bg-white rounded-full shadow-lg border-2 border-zinc-900 pointer-events-none"
+            style={{ left: `calc(${sliderValue}% - 10px)` }}
+          />
+          
+          {/* Actual range input - full size for easy touch */}
           <input
             type="range"
             min={0}
-            max={duration || 100}
+            max={100}
             step={0.1}
-            value={localTime}
-            onChange={handleSeekChange}
-            onMouseUp={handleSeekCommit}
-            onTouchEnd={handleSeekCommit}
+            value={sliderValue}
+            onChange={handleSliderChange}
+            onMouseUp={handleSliderRelease}
+            onTouchEnd={handleSliderRelease}
+            onBlur={handleSliderRelease}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-            style={{ WebkitAppearance: 'none' }}
-          />
-          
-          {/* Visible thumb */}
-          <div 
-            className="absolute w-4 h-4 bg-white rounded-full shadow-lg pointer-events-none"
-            style={{ left: `calc(${progress}% - 8px)` }}
           />
         </div>
       </div>
 
       {/* Controls Row */}
       <div className="flex items-center justify-center gap-6">
-        {/* Skip Back */}
+        {/* Skip Back 10s */}
         <motion.button 
-          onClick={() => onSeek(Math.max(0, currentTime - 10))}
+          onClick={() => {
+            const newTime = Math.max(0, currentTime - 10);
+            console.log('[Skip Back] to:', newTime);
+            onSeek(newTime);
+          }}
           className="text-zinc-500 hover:text-zinc-300 transition-colors p-3"
           aria-label="Skip back 10 seconds"
           whileHover={{ scale: 1.1 }}
@@ -111,14 +119,14 @@ export default function ControlBar({
         {/* Play/Pause */}
         <motion.button
           onClick={onPlayPause}
-          className="w-16 h-16 rounded-full flex items-center justify-center relative overflow-hidden"
+          className="w-16 h-16 rounded-full flex items-center justify-center"
           style={{
             background: 'linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 100%)',
             backdropFilter: 'blur(10px)',
             border: '1px solid rgba(255,255,255,0.1)',
           }}
           aria-label={isPlaying ? 'Pause' : 'Play'}
-          whileHover={{ scale: 1.08, boxShadow: '0 0 30px rgba(255,255,255,0.15)' }}
+          whileHover={{ scale: 1.08 }}
           whileTap={{ scale: 0.95 }}
         >
           {isPlaying ? (
@@ -133,9 +141,13 @@ export default function ControlBar({
           )}
         </motion.button>
 
-        {/* Skip Forward */}
+        {/* Skip Forward 10s */}
         <motion.button 
-          onClick={() => onSeek(Math.min(duration, currentTime + 10))}
+          onClick={() => {
+            const newTime = Math.min(duration, currentTime + 10);
+            console.log('[Skip Forward] to:', newTime);
+            onSeek(newTime);
+          }}
           className="text-zinc-500 hover:text-zinc-300 transition-colors p-3"
           aria-label="Skip forward 10 seconds"
           whileHover={{ scale: 1.1 }}

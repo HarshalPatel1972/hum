@@ -75,6 +75,7 @@ export default function RoomPage() {
   const playerRef = useRef<VideoLayerRef>(null);
   const isRemoteUpdate = useRef(false);
   const lastEmitTime = useRef(0);
+  const pendingSync = useRef<{ time: number; playing: boolean } | null>(null);
 
   // Update thumbnail when video changes
   useEffect(() => {
@@ -135,7 +136,7 @@ export default function RoomPage() {
     socket.on('receive_state', (state: RoomState & { title?: string; channel?: string }) => {
       isRemoteUpdate.current = true;
 
-      if (state.videoId !== videoId) {
+      if (state.videoId && state.videoId !== videoId) {
         setVideoId(state.videoId);
       }
       
@@ -144,14 +145,21 @@ export default function RoomPage() {
 
       setIsPlaying(state.isPlaying);
 
+      const targetTime = state.currentSeconds || 0;
+      
+      // If player is ready, seek immediately
       if (playerRef.current && isReady) {
-        const targetTime = state.currentSeconds;
         const currentPlayerTime = playerRef.current.getCurrentTime();
         const timeDiff = Math.abs(currentPlayerTime - targetTime);
 
         if (timeDiff > 0.5) {
+          console.log('[Sync] Seeking to:', targetTime);
           playerRef.current.seekTo(targetTime);
         }
+      } else {
+        // Player not ready yet - store pending sync
+        console.log('[Sync] Player not ready, storing pending sync:', targetTime);
+        pendingSync.current = { time: targetTime, playing: state.isPlaying };
       }
 
       setTimeout(() => {
@@ -240,7 +248,16 @@ export default function RoomPage() {
   };
 
   const handleReady = () => {
+    console.log('[Player] Ready');
     setIsReady(true);
+    
+    // Apply pending sync if we received state before player was ready
+    if (pendingSync.current && playerRef.current) {
+      console.log('[Sync] Applying pending sync:', pendingSync.current);
+      playerRef.current.seekTo(pendingSync.current.time);
+      setIsPlaying(pendingSync.current.playing);
+      pendingSync.current = null;
+    }
   };
 
   const handleVolumeChange = (vol: number) => {

@@ -8,31 +8,32 @@ interface LoadingScreenProps {
 }
 
 export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
-  const [showWord1, setShowWord1] = useState(false);
-  const [showWord2, setShowWord2] = useState(false);
-  const [showWord3, setShowWord3] = useState(false);
-  const [fadeOut, setFadeOut] = useState(false);
+  const [step, setStep] = useState(0);
 
   useEffect(() => {
-    // Equal 600ms delay between each word
-    const t1 = setTimeout(() => setShowWord1(true), 600);   // हम at 600ms
-    const t2 = setTimeout(() => setShowWord2(true), 1200);  // तुम at 1200ms
-    const t3 = setTimeout(() => setShowWord3(true), 1800);  // धुन at 1800ms
-    
-    // Fade out at 2600ms
-    const t4 = setTimeout(() => setFadeOut(true), 2600);
-    
-    // Complete at 3400ms
-    const t5 = setTimeout(() => onComplete(), 3400);
+    // Simple counter approach - most reliable
+    const interval = setInterval(() => {
+      setStep(prev => prev + 1);
+    }, 500); // Every 500ms advance a step
 
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
-      clearTimeout(t5);
-    };
-  }, [onComplete]);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    // step 1 = show हम (at 500ms)
+    // step 2 = show तुम (at 1000ms) 
+    // step 3 = show धुन (at 1500ms)
+    // step 5 = fade out (at 2500ms)
+    // step 6 = complete (at 3000ms)
+    if (step >= 6) {
+      onComplete();
+    }
+  }, [step, onComplete]);
+
+  const showWord1 = step >= 1;
+  const showWord2 = step >= 2;
+  const showWord3 = step >= 3;
+  const fadeOut = step >= 5;
 
   if (fadeOut) {
     return (
@@ -40,7 +41,7 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
         className="fixed inset-0 z-[100] bg-[#09090b]"
         initial={{ opacity: 1 }}
         animate={{ opacity: 0 }}
-        transition={{ duration: 0.8 }}
+        transition={{ duration: 0.5 }}
       />
     );
   }
@@ -48,54 +49,48 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
   return (
     <div className="fixed inset-0 z-[100] bg-[#09090b] flex items-center justify-center">
       <div className="flex items-center gap-6">
-        {/* Word 1: हम */}
-        <motion.div
-          className="flex flex-col items-center"
-          initial={{ opacity: 0, y: 20 }}
-          animate={showWord1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-          transition={{ duration: 0.4 }}
+        {/* हम */}
+        <div 
+          className="flex flex-col items-center transition-all duration-300"
+          style={{ 
+            opacity: showWord1 ? 1 : 0, 
+            transform: showWord1 ? 'translateY(0)' : 'translateY(20px)' 
+          }}
         >
           <span className="text-5xl md:text-7xl font-bold text-white tracking-tight">हम</span>
           <span className="text-xs text-zinc-600 tracking-[0.3em] uppercase mt-2">Us</span>
-        </motion.div>
+        </div>
 
-        {/* Word 2: तुम */}
-        <motion.div
-          className="flex flex-col items-center"
-          initial={{ opacity: 0, y: 20 }}
-          animate={showWord2 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-          transition={{ duration: 0.4 }}
+        {/* तुम */}
+        <div 
+          className="flex flex-col items-center transition-all duration-300"
+          style={{ 
+            opacity: showWord2 ? 1 : 0, 
+            transform: showWord2 ? 'translateY(0)' : 'translateY(20px)' 
+          }}
         >
           <span className="text-5xl md:text-7xl font-bold text-white tracking-tight">तुम</span>
           <span className="text-xs text-zinc-600 tracking-[0.3em] uppercase mt-2">You</span>
-        </motion.div>
+        </div>
 
-        {/* Word 3: धुन */}
-        <motion.div
-          className="flex flex-col items-center"
-          initial={{ opacity: 0, y: 20 }}
-          animate={showWord3 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-          transition={{ duration: 0.4 }}
+        {/* धुन */}
+        <div 
+          className="flex flex-col items-center transition-all duration-300"
+          style={{ 
+            opacity: showWord3 ? 1 : 0, 
+            transform: showWord3 ? 'translateY(0)' : 'translateY(20px)' 
+          }}
         >
           <span className="text-5xl md:text-7xl font-bold text-white tracking-tight">धुन</span>
           <span className="text-xs text-zinc-600 tracking-[0.3em] uppercase mt-2">Melody</span>
-        </motion.div>
+        </div>
       </div>
 
       {/* Dots */}
       <div className="absolute bottom-20 flex items-center gap-2">
-        <motion.div
-          className="w-1 h-1 rounded-full bg-zinc-700"
-          animate={{ opacity: showWord1 ? 1 : 0 }}
-        />
-        <motion.div
-          className="w-1 h-1 rounded-full bg-zinc-700"
-          animate={{ opacity: showWord2 ? 1 : 0 }}
-        />
-        <motion.div
-          className="w-1 h-1 rounded-full bg-zinc-700"
-          animate={{ opacity: showWord3 ? 1 : 0 }}
-        />
+        <div className={`w-1 h-1 rounded-full transition-opacity duration-300 ${showWord1 ? 'bg-zinc-500' : 'bg-zinc-800'}`} />
+        <div className={`w-1 h-1 rounded-full transition-opacity duration-300 ${showWord2 ? 'bg-zinc-500' : 'bg-zinc-800'}`} />
+        <div className={`w-1 h-1 rounded-full transition-opacity duration-300 ${showWord3 ? 'bg-zinc-500' : 'bg-zinc-800'}`} />
       </div>
     </div>
   );
