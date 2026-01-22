@@ -11,6 +11,8 @@ interface ControlBarProps {
   onPlayPause: () => void;
   onSeek: (seconds: number) => void;
   onVolumeChange: (volume: number) => void;
+  onPrevTrack?: () => void;
+  onNextTrack?: () => void;
 }
 
 export default function ControlBar({
@@ -19,6 +21,8 @@ export default function ControlBar({
   duration,
   onPlayPause,
   onSeek,
+  onPrevTrack,
+  onNextTrack,
 }: ControlBarProps) {
   const [sliderValue, setSliderValue] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -98,15 +102,24 @@ export default function ControlBar({
       </div>
 
       {/* Controls Row */}
-      <div className="flex items-center justify-center gap-6">
+      <div className="flex items-center justify-center gap-4">
+        {/* Previous Track */}
+        <motion.button 
+          onClick={onPrevTrack}
+          className="text-zinc-500 hover:text-zinc-300 transition-colors p-3"
+          aria-label="Previous track"
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+          </svg>
+        </motion.button>
+
         {/* Skip Back 10s */}
         <motion.button 
-          onClick={() => {
-            const newTime = Math.max(0, currentTime - 10);
-            console.log('[Skip Back] to:', newTime);
-            onSeek(newTime);
-          }}
-          className="text-zinc-500 hover:text-zinc-300 transition-colors p-3"
+          onClick={() => onSeek(Math.max(0, currentTime - 10))}
+          className="text-zinc-600 hover:text-zinc-400 transition-colors p-2"
           aria-label="Skip back 10 seconds"
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
@@ -143,18 +156,27 @@ export default function ControlBar({
 
         {/* Skip Forward 10s */}
         <motion.button 
-          onClick={() => {
-            const newTime = Math.min(duration, currentTime + 10);
-            console.log('[Skip Forward] to:', newTime);
-            onSeek(newTime);
-          }}
-          className="text-zinc-500 hover:text-zinc-300 transition-colors p-3"
+          onClick={() => onSeek(Math.min(duration, currentTime + 10))}
+          className="text-zinc-600 hover:text-zinc-400 transition-colors p-2"
           aria-label="Skip forward 10 seconds"
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062A1.125 1.125 0 013 16.81V8.688zM12.75 8.688c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062a1.125 1.125 0 01-1.683-.977V8.688z" />
+          </svg>
+        </motion.button>
+
+        {/* Next Track */}
+        <motion.button 
+          onClick={onNextTrack}
+          className="text-zinc-500 hover:text-zinc-300 transition-colors p-3"
+          aria-label="Next track"
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
           </svg>
         </motion.button>
       </div>

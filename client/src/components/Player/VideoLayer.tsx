@@ -18,10 +18,11 @@ interface VideoLayerProps {
   onProgress: (state: OnProgressProps) => void;
   onReady: () => void;
   onDuration: (duration: number) => void;
+  onEnded?: () => void;
 }
 
 const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
-  ({ videoId, isPlaying, volume, onPlay, onPause, onProgress, onReady, onDuration }, ref) => {
+  ({ videoId, isPlaying, volume, onPlay, onPause, onProgress, onReady, onDuration, onEnded }, ref) => {
     const playerRef = useRef<ReactPlayer>(null);
 
     // IMPORTANT: useImperativeHandle must be called BEFORE any early returns!
@@ -63,6 +64,7 @@ const VideoLayer = forwardRef<VideoLayerRef, VideoLayerProps>(
             onProgress={onProgress}
             onReady={onReady}
             onDuration={onDuration}
+            onEnded={onEnded}
             progressInterval={100}
             volume={volume}
             muted={false}

@@ -50,6 +50,10 @@ export default function RoomPage() {
   const [volume, setVolume] = useState(0.8);
   const [isReady, setIsReady] = useState(false);
   
+  // Track history for prev/next
+  const [trackHistory, setTrackHistory] = useState<SearchResult[]>([]);
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(-1);
+  
   // Socket state
   const [isConnected, setIsConnected] = useState(false);
   const [userCount, setUserCount] = useState(1);
@@ -270,6 +274,63 @@ export default function RoomPage() {
     setVideoChannel(result.channel);
     setVideoThumbnail(result.thumbnail);
     setIsPlaying(true);  // Auto-play locally
+    
+    // Add to track history
+    setTrackHistory(prev => [...prev, result]);
+    setCurrentTrackIndex(prev => prev + 1);
+  };
+
+  const handlePrevTrack = () => {
+    if (currentTrackIndex > 0) {
+      const prevTrack = trackHistory[currentTrackIndex - 1];
+      if (prevTrack) {
+        setCurrentTrackIndex(currentTrackIndex - 1);
+        const socket = getSocket();
+        socket.emit('change_video', { 
+          roomId, 
+          videoId: prevTrack.videoId,
+          title: prevTrack.title,
+          channel: prevTrack.channel,
+          autoPlay: false
+        });
+        setVideoId(prevTrack.videoId);
+        setVideoTitle(prevTrack.title);
+        setVideoChannel(prevTrack.channel);
+        setVideoThumbnail(prevTrack.thumbnail);
+        setIsPlaying(false); // Pause on prev
+      }
+    }
+  };
+
+  const handleNextTrack = () => {
+    // If we have more tracks in history, play next
+    if (currentTrackIndex < trackHistory.length - 1) {
+      const nextTrack = trackHistory[currentTrackIndex + 1];
+      if (nextTrack) {
+        setCurrentTrackIndex(currentTrackIndex + 1);
+        const socket = getSocket();
+        socket.emit('change_video', { 
+          roomId, 
+          videoId: nextTrack.videoId,
+          title: nextTrack.title,
+          channel: nextTrack.channel,
+          autoPlay: true
+        });
+        setVideoId(nextTrack.videoId);
+        setVideoTitle(nextTrack.title);
+        setVideoChannel(nextTrack.channel);
+        setVideoThumbnail(nextTrack.thumbnail);
+        setIsPlaying(true);
+      }
+    } else {
+      // Open search to find next song
+      openSearch();
+    }
+  };
+
+  const handleEnded = () => {
+    console.log('[Player] Track ended, playing next...');
+    handleNextTrack();
   };
 
   const handleSendMessage = (message: string) => {
@@ -303,6 +364,7 @@ export default function RoomPage() {
             onProgress={handleProgress}
             onReady={handleReady}
             onDuration={handleDuration}
+            onEnded={handleEnded}
           />
 
           {/* Heartbeat Aura */}
@@ -390,6 +452,8 @@ export default function RoomPage() {
                 onPlayPause={handlePlayPause}
                 onSeek={handleSeek}
                 onVolumeChange={handleVolumeChange}
+                onPrevTrack={handlePrevTrack}
+                onNextTrack={handleNextTrack}
               />
 
               {/* Whisper Input */}
