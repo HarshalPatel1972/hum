@@ -8,7 +8,8 @@ interface LoadingScreenProps {
 }
 
 export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
-  const [visibleWords, setVisibleWords] = useState<number[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(-1);
+  const [isExiting, setIsExiting] = useState(false);
 
   const words = [
     { hindi: 'हम', english: 'Us' },
@@ -19,40 +20,43 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
   useEffect(() => {
     const timers: NodeJS.Timeout[] = [];
 
-    // Show each word one by one (cumulative, not replacing)
-    words.forEach((_, index) => {
-      timers.push(setTimeout(() => {
-        setVisibleWords(prev => [...prev, index]);
-      }, 600 * (index + 1)));
-    });
-
-    // Fade out and complete
-    timers.push(setTimeout(() => {
-      onComplete();
-    }, 600 * 5));
+    // Show word 1: हम at 500ms
+    timers.push(setTimeout(() => setCurrentIndex(0), 500));
+    
+    // Show word 2: तुम at 1100ms
+    timers.push(setTimeout(() => setCurrentIndex(1), 1100));
+    
+    // Show word 3: धुन at 1700ms
+    timers.push(setTimeout(() => setCurrentIndex(2), 1700));
+    
+    // Start exit animation at 2500ms
+    timers.push(setTimeout(() => setIsExiting(true), 2500));
+    
+    // Complete at 3300ms
+    timers.push(setTimeout(() => onComplete(), 3300));
 
     return () => timers.forEach(clearTimeout);
   }, [onComplete]);
 
   return (
     <AnimatePresence>
-      {visibleWords.length < 4 && (
+      {!isExiting && (
         <motion.div
           className="fixed inset-0 z-[100] bg-[#09090b] flex items-center justify-center"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.8, ease: 'easeInOut' }}
         >
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
             {words.map((word, index) => (
               <motion.div
                 key={word.hindi}
                 className="flex flex-col items-center"
                 initial={{ opacity: 0, y: 20 }}
-                animate={visibleWords.includes(index) 
+                animate={currentIndex >= index 
                   ? { opacity: 1, y: 0 } 
                   : { opacity: 0, y: 20 }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
               >
                 <span className="text-5xl md:text-7xl font-bold text-white tracking-tight">
                   {word.hindi}
@@ -71,7 +75,7 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
                 key={i}
                 className="w-1 h-1 rounded-full bg-zinc-700"
                 initial={{ opacity: 0 }}
-                animate={visibleWords.includes(i) ? { opacity: 1 } : { opacity: 0 }}
+                animate={currentIndex >= i ? { opacity: 1 } : { opacity: 0 }}
                 transition={{ duration: 0.3 }}
               />
             ))}
